@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Management - Purchasing Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="loginArea" class="hidden">
+        <div class="container">
+            <div class="card" style="max-width: 400px; margin: 2rem auto;">
+                <h2>Admin Access Required</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <div id="loginError" class="error-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminArea" class="hidden">
+        <!-- Header -->
+        <div class="header">
+            <h1>🛒 Purchasing Tracker</h1>
+            <div class="header-nav">
+                <a href="/" class="header-nav-link">New Request</a>
+                <a href="/approval" class="header-nav-link">Approvals</a>
+                <a href="/tracking" class="header-nav-link">Track Orders</a>
+                <a href="/admin" class="header-nav-link active">Admin</a>
+            </div>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="users">Users</button>
+                <button class="tab-btn" data-tab="vendors">Vendors</button>
+                <button class="tab-btn" data-tab="departments">Categories</button>
+                <button class="tab-btn" data-tab="settings">Settings</button>
+            </div>
+
+            <!-- Users Tab -->
+            <div class="tab-content active" id="users-tab">
+                <div class="card">
+                    <h2>User Management</h2>
+                    <form id="addUserForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 1rem; align-items: end; margin-bottom: 2rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Username</label>
+                            <input type="text" id="newUsername" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Password</label>
+                            <input type="password" id="newPassword" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Full Name</label>
+                            <input type="text" id="newFullName" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Role</label>
+                            <select id="newRole" required>
+                                <option value="">Select Role...</option>
+                                <option value="admin">Admin</option>
+                                <option value="approver">Approver</option>
+                                <option value="purchaser">Purchaser</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add User</button>
+                    </form>
+
+                    <div id="usersTableContainer">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Full Name</th>
+                                    <th>Role</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendors Tab -->
+            <div class="tab-content" id="vendors-tab">
+                <div class="card">
+                    <h2>Vendor Management</h2>
+                    <form id="addVendorForm" style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: end; margin-bottom: 2rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Vendor Name</label>
+                            <input type="text" id="newVendorName" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Vendor</button>
+                    </form>
+
+                    <div id="vendorsTableContainer">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Vendor Name</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vendorsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Departments Tab -->
+            <div class="tab-content" id="departments-tab">
+                <div class="card">
+                    <h2>Category Management</h2>
+                    <form id="addDepartmentForm" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end; margin-bottom: 2rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Category Name</label>
+                            <input type="text" id="newDepartmentName" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Assigned Approver (Optional)</label>
+                            <select id="newDepartmentApprover">
+                                <option value="">Any Approver</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Category</button>
+                    </form>
+
+                    <div id="departmentsTableContainer">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Category Name</th>
+                                    <th>Assigned Approver</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="departmentsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-content" id="settings-tab">
+                <div class="card">
+                    <h2>Approval Settings</h2>
+                    <p style="color: #666; margin-bottom: 2rem;">Configure the multi-approval system for high-value purchase requests.</p>
+                    
+                    <form id="settingsForm" style="max-width: 600px;">
+                        <div class="form-group">
+                            <label>Multi-Approval Threshold ($)</label>
+                            <input type="number" id="multiApprovalThreshold" step="0.01" min="0" required>
+                            <small style="color: #666;">Purchase requests at or above this amount require multiple approvals</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Required Approvals</label>
+                            <input type="number" id="requiredApprovals" min="1" required>
+                            <small style="color: #666;">Number of approvals needed for high-value purchases</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        let currentUser = null;
+
+        // Check authentication on load
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/check');
+                const data = await response.json();
+                
+                if (data.authenticated && data.role === 'admin') {
+                    currentUser = data;
+                    document.getElementById('userName').textContent = data.fullName;
+                    document.getElementById('userRole').textContent = data.role;
+                    document.getElementById('loginArea').classList.add('hidden');
+                    document.getElementById('adminArea').classList.remove('hidden');
+                    loadAllData();
+                } else if (data.authenticated && data.role !== 'admin') {
+                    // User is logged in but not an admin
+                    document.getElementById('loginArea').classList.remove('hidden');
+                    document.getElementById('adminArea').classList.add('hidden');
+                    document.getElementById('loginError').textContent = 'Admin access required. Please login with an admin account.';
+                } else {
+                    // Not authenticated at all
+                    document.getElementById('loginArea').classList.remove('hidden');
+                    document.getElementById('adminArea').classList.add('hidden');
+                }
+            } catch (error) {
+                document.getElementById('loginArea').classList.remove('hidden');
+                document.getElementById('adminArea').classList.add('hidden');
+            }
+        }
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.user.role === 'admin') {
+                    currentUser = data.user;
+                    checkAuth();
+                } else if (data.success && data.user.role !== 'admin') {
+                    document.getElementById('loginError').textContent = 'Admin access required';
+                } else {
+                    document.getElementById('loginError').textContent = data.error || 'Login failed';
+                }
+            } catch (error) {
+                document.getElementById('loginError').textContent = 'Login failed';
+            }
+        });
+
+        // Logout
+        function logout() {
+            fetch('/api/logout', { method: 'POST' })
+                .then(() => {
+                    window.location.href = '/';
+                });
+        }
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.tab;
+                
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                btn.classList.add('active');
+                document.getElementById(tabName + '-tab').classList.add('active');
+            });
+        });
+
+        // Load all data
+        function loadAllData() {
+            loadUsers();
+            loadVendors();
+            loadDepartments();
+            loadApprovers();
+            loadSettings();
+        }
+
+        // Load approvers for category assignment
+        let approvers = [];
+        async function loadApprovers() {
+            try {
+                const response = await fetch('/api/approvers');
+                const data = await response.json();
+                approvers = data.approvers;
+                
+                // Populate approver dropdown
+                const select = document.getElementById('newDepartmentApprover');
+                select.innerHTML = '<option value="">Any Approver</option>';
+                approvers.forEach(approver => {
+                    const option = document.createElement('option');
+                    option.value = approver.id;
+                    option.textContent = approver.full_name;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load approvers:', error);
+            }
+        }
+
+        // Users Management
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('usersTable');
+                tbody.innerHTML = '';
+                
+                data.users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${user.username}</td>
+                        <td>${user.full_name}</td>
+                        <td><span class="status-badge status-${user.role}">${user.role}</span></td>
+                        <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button onclick="deleteUser(${user.id}, '${user.username}')" class="btn btn-small btn-danger">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                showError('Failed to load users');
+            }
+        }
+
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('newUsername').value;
+            const password = document.getElementById('newPassword').value;
+            const fullName = document.getElementById('newFullName').value;
+            const role = document.getElementById('newRole').value;
+            
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, full_name: fullName, role })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('User created successfully');
+                    document.getElementById('addUserForm').reset();
+                    loadUsers();
+                } else {
+                    showError(data.error || 'Failed to create user');
+                }
+            } catch (error) {
+                showError('Failed to create user');
+            }
+        });
+
+        async function deleteUser(id, username) {
+            if (currentUser.username === username) {
+                showError('Cannot delete your own account');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to delete user "${username}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/users/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('User deleted successfully');
+                    loadUsers();
+                } else {
+                    showError(data.error || 'Failed to delete user');
+                }
+            } catch (error) {
+                showError('Failed to delete user');
+            }
+        }
+
+        // Vendors Management
+        async function loadVendors() {
+            try {
+                const response = await fetch('/api/vendors');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('vendorsTable');
+                tbody.innerHTML = '';
+                
+                data.vendors.forEach(vendor => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${vendor.name}</td>
+                        <td>${new Date(vendor.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button onclick="deleteVendor(${vendor.id}, '${vendor.name.replace(/'/g, "\\'")}')" class="btn btn-small btn-danger">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                showError('Failed to load vendors');
+            }
+        }
+
+        document.getElementById('addVendorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('newVendorName').value;
+            
+            try {
+                const response = await fetch('/api/vendors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Vendor created successfully');
+                    document.getElementById('addVendorForm').reset();
+                    loadVendors();
+                } else {
+                    showError(data.error || 'Failed to create vendor');
+                }
+            } catch (error) {
+                showError('Failed to create vendor');
+            }
+        });
+
+        async function deleteVendor(id, name) {
+            if (!confirm(`Are you sure you want to delete vendor "${name}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/vendors/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Vendor deleted successfully');
+                    loadVendors();
+                } else {
+                    showError(data.error || 'Failed to delete vendor');
+                }
+            } catch (error) {
+                showError('Failed to delete vendor');
+            }
+        }
+
+        // Categories Management
+        async function loadDepartments() {
+            try {
+                const response = await fetch('/api/departments');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('departmentsTable');
+                tbody.innerHTML = '';
+                
+                data.departments.forEach(dept => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${dept.name}</td>
+                        <td>${dept.approver_name || 'Any Approver'}</td>
+                        <td>${new Date(dept.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button onclick="editDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}', ${dept.approver_id || 'null'})" class="btn btn-small btn-secondary">Edit</button>
+                            <button onclick="deleteDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}')" class="btn btn-small btn-danger">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                showError('Failed to load categories');
+            }
+        }
+
+        let editingDepartmentId = null;
+        
+        function editDepartment(id, name, approverId) {
+            editingDepartmentId = id;
+            document.getElementById('newDepartmentName').value = name;
+            document.getElementById('newDepartmentApprover').value = approverId || '';
+            document.querySelector('#addDepartmentForm button[type="submit"]').textContent = 'Update Category';
+        }
+
+        document.getElementById('addDepartmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('newDepartmentName').value;
+            const approverId = document.getElementById('newDepartmentApprover').value || null;
+            
+            try {
+                const url = editingDepartmentId ? `/api/departments/${editingDepartmentId}` : '/api/departments';
+                const method = editingDepartmentId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, approver_id: approverId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(editingDepartmentId ? 'Category updated successfully' : 'Category created successfully');
+                    document.getElementById('addDepartmentForm').reset();
+                    document.querySelector('#addDepartmentForm button[type="submit"]').textContent = 'Add Category';
+                    editingDepartmentId = null;
+                    loadDepartments();
+                } else {
+                    showError(data.error || 'Failed to save category');
+                }
+            } catch (error) {
+                showError('Failed to save category');
+            }
+        });
+
+        async function deleteDepartment(id, name) {
+            try {
+                const response = await fetch(`/api/departments/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Category deleted successfully');
+                    loadDepartments();
+                } else {
+                    showError(data.error || 'Failed to delete category');
+                }
+            } catch (error) {
+                showError('Failed to delete department');
+            }
+        }
+
+        // Settings Management
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+                
+                document.getElementById('multiApprovalThreshold').value = data.multi_approval_threshold;
+                document.getElementById('requiredApprovals').value = data.required_approvals;
+            } catch (error) {
+                showError('Failed to load settings');
+            }
+        }
+
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const threshold = document.getElementById('multiApprovalThreshold').value;
+            const approvals = document.getElementById('requiredApprovals').value;
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        multi_approval_threshold: parseFloat(threshold),
+                        required_approvals: parseInt(approvals)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Settings updated successfully');
+                    loadSettings(); // Reload to show updated values
+                } else {
+                    showError(data.error || 'Failed to update settings');
+                }
+            } catch (error) {
+                showError('Failed to update settings');
+            }
+        });
+
+        // Utility functions - Toast notifications
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    container.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        function showSuccess(message) {
+            showToast(message, 'success');
+        }
+
+        function showError(message) {
+            showToast(message, 'error');
+        }
+
+        // Initialize
+        checkAuth();
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "purchasing-tracker",
+  "version": "1.0.0",
+  "description": "A comprehensive purchasing tracker web application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["purchasing", "tracker", "inventory"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.2.2",
+    "body-parser": "^1.20.2"
+  }
+}

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Request - Purchasing Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Access Code Screen -->
+    <div id="accessCodeScreen" class="login-container">
+        <div class="login-card">
+            <h1>🛒 Purchasing Tracker</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 20px;">Enter the access code to create a purchase request</p>
+            <div id="codeError" class="alert alert-error hidden"></div>
+            <form id="accessCodeForm">
+                <div class="form-group">
+                    <label for="accessCode">Access Code</label>
+                    <input type="text" id="accessCode" name="accessCode" required placeholder="Enter access code" style="text-align: center; font-size: 18px; letter-spacing: 2px;">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Submit</button>
+            </form>
+            <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px; font-size: 12px; text-align: center;">
+                <strong>Staff Access:</strong><br>
+                <a href="/approval" style="color: #667eea; text-decoration: none;">Approvals & Tracking Login →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <div class="header">
+            <h1>🛒 Purchasing Tracker</h1>
+            <div class="user-info">
+                <span class="user-name">Public Request Form</span>
+                <button class="logout-btn" onclick="logout()">Exit</button>
+            </div>
+        </div>
+
+        <div class="container">
+            <!-- Purchase Request Form -->
+            <div class="card">
+                <h2>Create Purchase Request</h2>
+                <form id="purchaseRequestForm">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="requesterName">Your Name *</label>
+                            <input type="text" id="requesterName" required placeholder="Enter your full name">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="department">Category *</label>
+                            <select id="department" required>
+                                <option value="">Select a category...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="vendor">Vendor *</label>
+                            <select id="vendor" required>
+                                <option value="">Select a vendor...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="items-container">
+                        <h3>Items</h3>
+                        <div class="item-row header">
+                            <div>Product Name *</div>
+                            <div>Description</div>
+                            <div>Purchase Link</div>
+                            <div>Quantity *</div>
+                            <div>Unit Price *</div>
+                            <div>Line Total</div>
+                            <div></div>
+                        </div>
+                        <div id="itemsContainer">
+                            <!-- Items will be added here -->
+                        </div>
+                        <button type="button" class="btn btn-secondary add-item-btn" onclick="addItemRow()">+ Add Item</button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 30px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="taxRate">Tax Rate (%)</label>
+                            <input type="number" id="taxRate" value="7.5" step="0.01" min="0" max="100" onchange="calculateTotals()">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="shippingCost">Shipping Cost ($)</label>
+                            <input type="number" id="shippingCost" value="0" step="0.01" min="0" onchange="calculateTotals()">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Notes</label>
+                        <textarea id="notes" placeholder="Additional notes or special instructions..."></textarea>
+                    </div>
+
+                    <div class="summary-section">
+                        <div class="summary-row">
+                            <span>Subtotal:</span>
+                            <span id="subtotal">$0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Tax (<span id="taxRateDisplay">7.5</span>%):</span>
+                            <span id="taxAmount">$0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Shipping:</span>
+                            <span id="shippingAmount">$0.00</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total:</span>
+                            <span id="total">$0.00</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px;">
+                        <button type="submit" class="btn btn-primary">Submit Purchase Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Vendor Modal -->
+    <div id="addVendorModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Add New Vendor</h2>
+                <button class="close-modal" onclick="closeAddVendorModal()">&times;</button>
+            </div>
+            
+            <form id="addVendorForm">
+                <div class="form-group">
+                    <label for="vendorName">Vendor Name *</label>
+                    <input type="text" id="vendorName" required placeholder="e.g., ABC Supplies Inc">
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 30px;">
+                    <button type="submit" class="btn btn-primary">Add Vendor</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddVendorModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="addDepartmentModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Add New Category</h2>
+                <button class="close-modal" onclick="closeAddDepartmentModal()">&times;</button>
+            </div>
+            
+            <form id="addDepartmentForm">
+                <div class="form-group">
+                    <label for="departmentName">Category Name *</label>
+                    <input type="text" id="departmentName" required placeholder="e.g., Office Supplies">
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 30px;">
+                    <button type="submit" class="btn btn-primary">Add Category</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddDepartmentModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        let vendors = [];
+        let departments = [];
+        let itemCounter = 0;
+        const ACCESS_CODE = '8248';
+        const ACCESS_KEY = 'purchaseRequestAccess';
+
+        // Check access code on page load
+        async function checkAccess() {
+            const hasAccess = sessionStorage.getItem(ACCESS_KEY);
+            
+            if (hasAccess === 'true') {
+                document.getElementById('accessCodeScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                
+                try {
+                    await loadVendors();
+                    await loadDepartments();
+                    addItemRow();
+                } catch (error) {
+                    console.error('Error loading initial data:', error);
+                    showError('Failed to load initial data. Please refresh the page.');
+                }
+            } else {
+                document.getElementById('accessCodeScreen').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('hidden');
+            }
+        }
+
+        // Access code form
+        document.getElementById('accessCodeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = document.getElementById('accessCode').value.trim();
+            const codeError = document.getElementById('codeError');
+            
+            if (code === ACCESS_CODE) {
+                sessionStorage.setItem(ACCESS_KEY, 'true');
+                await checkAccess();
+            } else {
+                codeError.textContent = 'Invalid access code. Please try again.';
+                codeError.classList.remove('hidden');
+                document.getElementById('accessCode').value = '';
+                setTimeout(() => codeError.classList.add('hidden'), 3000);
+            }
+        });
+
+        // Logout (clear access)
+        function logout() {
+            sessionStorage.removeItem(ACCESS_KEY);
+            window.location.reload();
+        }
+
+        // Load categories (public endpoint)
+        async function loadDepartments() {
+            try {
+                const response = await fetch('/api/public/departments');
+                departments = await response.json();
+                
+                // Sort departments alphabetically by name
+                departments.sort((a, b) => a.name.localeCompare(b.name));
+                
+                const deptSelect = document.getElementById('department');
+                // Clear existing options except the first one
+                deptSelect.innerHTML = '<option value="">Select a category...</option>';
+                
+                departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.id;
+                    option.textContent = dept.name;
+                    deptSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+                showError('Failed to load categories. Please refresh the page.');
+            }
+        }
+
+        // Show add category modal
+        function showAddDepartmentModal() {
+            document.getElementById('addDepartmentModal').classList.add('show');
+            document.getElementById('addDepartmentForm').reset();
+        }
+
+        // Close add category modal
+        function closeAddDepartmentModal() {
+            document.getElementById('addDepartmentModal').classList.remove('show');
+        }
+
+        // Add category form submission
+        document.getElementById('addDepartmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const deptName = document.getElementById('departmentName').value.trim();
+            
+            try {
+                const response = await fetch('/api/public/departments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: deptName })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(`Category "${deptName}" added successfully!`);
+                    
+                    await loadDepartments();
+                    document.getElementById('department').value = data.id;
+                    
+                    setTimeout(() => {
+                        closeAddDepartmentModal();
+                    }, 500);
+                } else {
+                    showError(data.error || 'Failed to add category');
+                }
+            } catch (error) {
+                showError('Failed to add category');
+            }
+        });
+
+        // Load vendors (public endpoint)
+        async function loadVendors() {
+            try {
+                const response = await fetch('/api/public/vendors');
+                vendors = await response.json();
+                
+                // Sort vendors alphabetically by name
+                vendors.sort((a, b) => a.name.localeCompare(b.name));
+                
+                const vendorSelect = document.getElementById('vendor');
+                // Clear existing options except the first one
+                vendorSelect.innerHTML = '<option value="">Select a vendor...</option>';
+                
+                vendors.forEach(vendor => {
+                    const option = document.createElement('option');
+                    option.value = vendor.id;
+                    option.textContent = vendor.name;
+                    vendorSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load vendors:', error);
+                showError('Failed to load vendors. Please refresh the page.');
+            }
+        }
+
+        // Show add vendor modal
+        function showAddVendorModal() {
+            document.getElementById('addVendorModal').classList.add('show');
+            document.getElementById('addVendorForm').reset();
+        }
+
+        // Close add vendor modal
+        function closeAddVendorModal() {
+            document.getElementById('addVendorModal').classList.remove('show');
+        }
+
+        // Add vendor form submission
+        document.getElementById('addVendorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const vendorName = document.getElementById('vendorName').value.trim();
+            
+            try {
+                const response = await fetch('/api/public/vendors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: vendorName
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(`Vendor "${vendorName}" added successfully!`);
+                    
+                    // Reload vendors and select the new one
+                    await loadVendors();
+                    document.getElementById('vendor').value = data.id;
+                    
+                    // Close modal after a delay
+                    setTimeout(() => {
+                        closeAddVendorModal();
+                    }, 500);
+                } else {
+                    showError(data.error || 'Failed to add vendor');
+                }
+            } catch (error) {
+                showError('Connection error. Please try again.');
+            }
+        });
+
+        // Add item row
+        function addItemRow() {
+            itemCounter++;
+            const container = document.getElementById('itemsContainer');
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.id = `item-${itemCounter}`;
+            row.innerHTML = `
+                <div class="form-group">
+                    <input type="text" class="item-name" placeholder="Product name" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="item-description" placeholder="Description">
+                </div>
+                <div class="form-group">
+                    <input type="url" class="item-link" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="item-quantity" placeholder="Qty" min="1" value="1" required onchange="calculateTotals()">
+                </div>
+                <div class="form-group price-input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" class="item-price" placeholder="0.00" min="0" step="0.01" value="0" required onchange="calculateTotals()">
+                </div>
+                <div class="form-group">
+                    <input type="text" class="item-total" placeholder="$0.00" readonly>
+                </div>
+                <button type="button" class="remove-item-btn" onclick="removeItemRow(${itemCounter})">&times;</button>
+            `;
+            container.appendChild(row);
+        }
+
+        // Remove item row
+        function removeItemRow(id) {
+            const row = document.getElementById(`item-${id}`);
+            if (row) {
+                row.remove();
+                calculateTotals();
+            }
+        }
+
+        // Calculate totals
+        function calculateTotals() {
+            const items = document.querySelectorAll('#itemsContainer .item-row');
+            let subtotal = 0;
+            
+            items.forEach(item => {
+                const quantity = parseFloat(item.querySelector('.item-quantity').value) || 0;
+                const price = parseFloat(item.querySelector('.item-price').value) || 0;
+                const lineTotal = quantity * price;
+                
+                item.querySelector('.item-total').value = `$${lineTotal.toFixed(2)}`;
+                subtotal += lineTotal;
+            });
+            
+            const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+            const taxAmount = subtotal * (taxRate / 100);
+            const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
+            const total = subtotal + taxAmount + shippingCost;
+            
+            document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('taxRateDisplay').textContent = taxRate.toFixed(2);
+            document.getElementById('taxAmount').textContent = `$${taxAmount.toFixed(2)}`;
+            document.getElementById('shippingAmount').textContent = `$${shippingCost.toFixed(2)}`;
+            document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        // Submit purchase request
+        document.getElementById('purchaseRequestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const requesterName = document.getElementById('requesterName').value.trim();
+            const departmentId = document.getElementById('department').value;
+            const vendorId = document.getElementById('vendor').value;
+            const taxRate = parseFloat(document.getElementById('taxRate').value);
+            const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
+            const notes = document.getElementById('notes').value;
+            
+            // Collect items
+            const items = [];
+            const itemRows = document.querySelectorAll('#itemsContainer .item-row');
+            
+            itemRows.forEach(row => {
+                const productName = row.querySelector('.item-name').value;
+                const description = row.querySelector('.item-description').value;
+                const purchaseLink = row.querySelector('.item-link').value;
+                const quantity = parseInt(row.querySelector('.item-quantity').value);
+                const unitPrice = parseFloat(row.querySelector('.item-price').value);
+                
+                if (productName && quantity && unitPrice) {
+                    items.push({
+                        product_name: productName,
+                        description: description,
+                        purchase_link: purchaseLink,
+                        quantity: quantity,
+                        unit_price: unitPrice
+                    });
+                }
+            });
+            
+            if (items.length === 0) {
+                showError('Please add at least one item');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/public/purchase-requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        requester_name: requesterName,
+                        department_id: departmentId,
+                        vendor_id: vendorId,
+                        items: items,
+                        tax_rate: taxRate,
+                        shipping_cost: shippingCost,
+                        notes: notes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Purchase request submitted successfully! Request ID: #' + data.id);
+                    document.getElementById('purchaseRequestForm').reset();
+                    document.getElementById('itemsContainer').innerHTML = '';
+                    addItemRow();
+                    calculateTotals();
+                } else {
+                    showError(data.error || 'Failed to submit request');
+                }
+            } catch (error) {
+                showError('Connection error');
+            }
+        });
+
+        // Toast notification system
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return; // Safety check
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    if (container.contains(toast)) {
+                        container.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function showSuccess(message) {
+            showToast(message, 'success');
+        }
+
+        function showError(message) {
+            showToast(message, 'error');
+        }
+
+        // Initialize
+        checkAccess();
+    </script>
+</body>
+</html>
