@@ -289,8 +289,16 @@
                 </div>
 
                 ${currentRequest.notes ? `
-                    <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px;">
-                        <strong>Notes:</strong><br>${currentRequest.notes}
+                    <div class="callout callout-warning">
+                        <strong>Notes:</strong>
+                        ${currentRequest.notes}
+                    </div>
+                ` : ''}
+
+                ${currentRequest.requested_arrival_date ? `
+                    <div class="callout callout-info">
+                        <strong>📅 Requested Arrival Date</strong>
+                        <span class="callout-date">${formatDate(currentRequest.requested_arrival_date)}</span>
                     </div>
                 ` : ''}
 
@@ -341,10 +349,6 @@
 
         // Approve request
         async function approveRequest(id) {
-            if (!confirm('Are you sure you want to approve this purchase request?')) {
-                return;
-            }
-            
             try {
                 const response = await fetch(`/api/purchase-requests/${id}/status`, {
                     method: 'PUT',
@@ -371,10 +375,6 @@
 
         // Reject request
         async function rejectRequest(id) {
-            if (!confirm('Are you sure you want to reject this purchase request?')) {
-                return;
-            }
-            
             try {
                 const response = await fetch(`/api/purchase-requests/${id}/status`, {
                     method: 'PUT',
@@ -418,6 +418,12 @@
 
         function showError(message) {
             showToast(message, 'error');
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Not specified';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         }
 
         // Initialize

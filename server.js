@@ -159,6 +159,14 @@ function initializeDatabase() {
         // Column already exists, ignore
     }
 
+    // Add requested_arrival_date column if it doesn't exist (migration)
+    try {
+        db.exec(`ALTER TABLE purchase_requests ADD COLUMN requested_arrival_date TEXT`);
+        console.log('Added requested_arrival_date column to purchase_requests table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
     // Create approvals tracking table
     try {
         db.exec(`
@@ -196,7 +204,30 @@ function initializeDatabase() {
     if (settingsCount.count === 0) {
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('multi_approval_threshold', '1000');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('required_approvals', '5');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_webhook_url', '');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
         console.log('Default settings initialized');
+    } else {
+        // Add Slack settings if they don't exist (for existing databases)
+        const slackWebhookExists = db.prepare('SELECT COUNT(*) as count FROM settings WHERE key = ?').get('slack_webhook_url');
+        if (slackWebhookExists.count === 0) {
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_webhook_url', '');
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
+            console.log('Slack notification settings added');
+        } else {
+            // Add ordered message if it doesn't exist (for databases that have slack settings but not ordered message)
+            const slackOrderedExists = db.prepare('SELECT COUNT(*) as count FROM settings WHERE key = ?').get('slack_ordered_message');
+            if (slackOrderedExists.count === 0) {
+                db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+                console.log('Slack ordered message setting added');
+            }
+        }
     }
 
     // Create default admin user if no users exist
@@ -234,6 +265,91 @@ function getMultiApprovalThreshold() {
 
 function getRequiredApprovals() {
     return parseInt(getSetting('required_approvals', '5'));
+}
+
+// Helper function to format date
+function formatDate(dateString) {
+    if (!dateString) return 'Not specified';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// Slack notification function
+async function sendSlackNotification(messageType, requestData) {
+    try {
+        console.log(`[Slack] Attempting to send notification: ${messageType}`, requestData);
+        const webhookUrl = getSetting('slack_webhook_url', '');
+        
+        // Don't send if webhook URL is not configured
+        if (!webhookUrl || webhookUrl.trim() === '') {
+            console.log('[Slack] Webhook URL not configured, skipping notification');
+            return;
+        }
+
+        console.log(`[Slack] Webhook URL found: ${webhookUrl.substring(0, 50)}...`);
+
+        let messageTemplate = '';
+        switch (messageType) {
+            case 'new_request':
+                messageTemplate = getSetting('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
+                break;
+            case 'approved':
+                messageTemplate = getSetting('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
+                break;
+            case 'ordered':
+                messageTemplate = getSetting('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+                break;
+            case 'arrived':
+                messageTemplate = getSetting('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
+                break;
+            default:
+                console.log(`[Slack] Unknown message type: ${messageType}`);
+                return;
+        }
+
+        // Replace placeholders with actual data
+        let message = messageTemplate
+            .replace(/\{\{id\}\}/g, requestData.id || '')
+            .replace(/\{\{requester\}\}/g, requestData.requester_name || '')
+            .replace(/\{\{vendor\}\}/g, requestData.vendor_name || '')
+            .replace(/\{\{total\}\}/g, requestData.total ? requestData.total.toFixed(2) : '0.00')
+            .replace(/\{\{requested_arrival_date\}\}/g, requestData.requested_arrival_date ? formatDate(requestData.requested_arrival_date) : 'Not specified');
+
+        console.log(`[Slack] Sending message: ${message}`);
+
+        // Send to Slack using native https module
+        const https = require('https');
+        const url = new URL(webhookUrl);
+        const postData = JSON.stringify({ text: message });
+
+        const options = {
+            hostname: url.hostname,
+            port: 443,
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            if (res.statusCode !== 200) {
+                console.error('[Slack] Failed to send notification, status:', res.statusCode);
+            } else {
+                console.log('[Slack] Notification sent successfully');
+            }
+        });
+
+        req.on('error', (error) => {
+            console.error('[Slack] Error sending notification:', error);
+        });
+
+        req.write(postData);
+        req.end();
+    } catch (error) {
+        console.error('[Slack] Exception in sendSlackNotification:', error);
+    }
 }
 
 // Authentication middleware
@@ -310,7 +426,7 @@ app.post('/api/public/departments', (req, res) => {
 });
 
 app.post('/api/public/purchase-requests', (req, res) => {
-    const { vendor_id, department_id, requester_name, items, tax_rate, shipping_cost, notes } = req.body;
+    const { vendor_id, department_id, requester_name, items, tax_rate, shipping_cost, notes, requested_arrival_date } = req.body;
     
     if (!requester_name || requester_name.trim().length === 0) {
         return res.status(400).json({ error: 'Requester name is required' });
@@ -346,9 +462,9 @@ app.post('/api/public/purchase-requests', (req, res) => {
         
         // Insert purchase request
         const result = db.prepare(`
-            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, subtotal, tax_amount, shipping_cost, total, notes, requires_multi_approval, approval_count)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-        `).run(vendor_id, department_id, publicUser.id, requester_name.trim(), subtotal, tax_amount, shipping, total, notes, requiresMultiApproval);
+            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, subtotal, tax_amount, shipping_cost, total, notes, requires_multi_approval, approval_count, requested_arrival_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+        `).run(vendor_id, department_id, publicUser.id, requester_name.trim(), subtotal, tax_amount, shipping, total, notes, requiresMultiApproval, requested_arrival_date || null);
         
         const requestId = result.lastInsertRowid;
         
@@ -361,6 +477,18 @@ app.post('/api/public/purchase-requests', (req, res) => {
         items.forEach(item => {
             const line_total = item.quantity * item.unit_price;
             insertItem.run(requestId, item.product_name, item.description, item.purchase_link || null, item.quantity, item.unit_price, line_total);
+        });
+        
+        // Get vendor name for notification
+        const vendor = db.prepare('SELECT name FROM vendors WHERE id = ?').get(vendor_id);
+        
+        // Send Slack notification for new request
+        sendSlackNotification('new_request', {
+            id: requestId,
+            requester_name: requester_name.trim(),
+            vendor_name: vendor ? vendor.name : 'Unknown Vendor',
+            total: total,
+            requested_arrival_date: requested_arrival_date
         });
         
         res.json({ success: true, id: requestId });
@@ -535,7 +663,7 @@ app.get('/api/purchase-requests/:id', requireAuth, (req, res) => {
 });
 
 app.post('/api/purchase-requests', requireAuth, (req, res) => {
-    const { vendor_id, department_id, items, tax_rate, notes } = req.body;
+    const { vendor_id, department_id, items, tax_rate, notes, requested_arrival_date } = req.body;
     
     if (!items || items.length === 0) {
         return res.status(400).json({ error: 'At least one item is required' });
@@ -552,9 +680,9 @@ app.post('/api/purchase-requests', requireAuth, (req, res) => {
         
         // Insert purchase request
         const result = db.prepare(`
-            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, subtotal, tax_amount, total, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(vendor_id, department_id, req.session.userId, requesterName, subtotal, tax_amount, total, notes);
+            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, subtotal, tax_amount, total, notes, requested_arrival_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(vendor_id, department_id, req.session.userId, requesterName, subtotal, tax_amount, total, notes, requested_arrival_date || null);
         
         const requestId = result.lastInsertRowid;
         
@@ -567,6 +695,18 @@ app.post('/api/purchase-requests', requireAuth, (req, res) => {
         items.forEach(item => {
             const line_total = item.quantity * item.unit_price;
             insertItem.run(requestId, item.product_name, item.description, item.purchase_link || null, item.quantity, item.unit_price, line_total);
+        });
+        
+        // Get vendor name for notification
+        const vendor = db.prepare('SELECT name FROM vendors WHERE id = ?').get(vendor_id);
+        
+        // Send Slack notification for new request
+        sendSlackNotification('new_request', {
+            id: requestId,
+            requester_name: requesterName,
+            vendor_name: vendor ? vendor.name : 'Unknown Vendor',
+            total: total,
+            requested_arrival_date: requested_arrival_date
         });
         
         res.json({ success: true, id: requestId });
@@ -635,6 +775,17 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                         WHERE id = ?
                     `).run(req.session.userId, requestId);
                     
+                    // Get vendor name for notification
+                    const requestDetails = db.prepare(`
+                        SELECT pr.*, v.name as vendor_name
+                        FROM purchase_requests pr
+                        JOIN vendors v ON pr.vendor_id = v.id
+                        WHERE pr.id = ?
+                    `).get(requestId);
+                    
+                    // Send Slack notification for approved request
+                    sendSlackNotification('approved', requestDetails);
+                    
                     return res.json({ success: true, message: `Request fully approved with ${newCount} approvals`, approved: true });
                 } else {
                     return res.json({ success: true, message: `Approval recorded (${newCount}/${requiredApprovals})`, approved: false, approvalCount: newCount, required: requiredApprovals });
@@ -646,6 +797,17 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                     SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 `).run(req.session.userId, requestId);
+                
+                // Get vendor name for notification
+                const requestDetails = db.prepare(`
+                    SELECT pr.*, v.name as vendor_name
+                    FROM purchase_requests pr
+                    JOIN vendors v ON pr.vendor_id = v.id
+                    WHERE pr.id = ?
+                `).get(requestId);
+                
+                // Send Slack notification for approved request
+                sendSlackNotification('approved', requestDetails);
             }
         } else if (status === 'rejected') {
             db.prepare(`
@@ -653,6 +815,21 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                 SET status = 'rejected', approved_by = ?, approved_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             `).run(req.session.userId, requestId);
+        } else if (status === 'ordered') {
+            // Mark as ordered
+            db.prepare('UPDATE purchase_requests SET status = ? WHERE id = ?')
+                .run(status, requestId);
+            
+            // Get vendor name for notification
+            const requestDetails = db.prepare(`
+                SELECT pr.*, v.name as vendor_name
+                FROM purchase_requests pr
+                JOIN vendors v ON pr.vendor_id = v.id
+                WHERE pr.id = ?
+            `).get(requestId);
+            
+            // Send Slack notification for ordered request
+            sendSlackNotification('ordered', requestDetails);
         } else {
             db.prepare('UPDATE purchase_requests SET status = ? WHERE id = ?')
                 .run(status, requestId);
@@ -683,6 +860,10 @@ app.put('/api/purchase-requests/:requestId/items/:itemId/receive', requireAuth, 
             'SELECT * FROM purchase_request_items WHERE purchase_request_id = ?'
         ).all(requestId);
         
+        // Get current status before update
+        const currentRequest = db.prepare('SELECT status FROM purchase_requests WHERE id = ?').get(requestId);
+        const wasOrdered = currentRequest.status === 'ordered';
+        
         const allReceived = items.every(item => item.quantity_received >= item.quantity);
         const someReceived = items.some(item => item.quantity_received > 0);
         
@@ -695,6 +876,18 @@ app.put('/api/purchase-requests/:requestId/items/:itemId/receive', requireAuth, 
         
         db.prepare('UPDATE purchase_requests SET status = ? WHERE id = ?')
             .run(newStatus, requestId);
+        
+        // Send notification when first items arrive (transition from ordered to partially_received)
+        if (wasOrdered && (newStatus === 'partially_received' || newStatus === 'completed')) {
+            const requestDetails = db.prepare(`
+                SELECT pr.*, v.name as vendor_name
+                FROM purchase_requests pr
+                JOIN vendors v ON pr.vendor_id = v.id
+                WHERE pr.id = ?
+            `).get(requestId);
+            
+            sendSlackNotification('arrived', requestDetails);
+        }
         
         res.json({ success: true, newStatus });
     } catch (error) {
@@ -769,23 +962,49 @@ app.get('/tracking', (req, res) => {
 });
 
 // Settings API
-app.get('/api/settings', requireAuth, requireRole(['admin', 'approver']), (req, res) => {
+// Settings API
+app.get('/api/settings', requireAuth, requireRole('admin', 'approver'), (req, res) => {
     try {
         const threshold = getMultiApprovalThreshold();
         const requiredApprovals = getRequiredApprovals();
+        const slackWebhookUrl = getSetting('slack_webhook_url', '');
+        const slackNewRequestMessage = getSetting('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
+        const slackApprovedMessage = getSetting('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
+        const slackOrderedMessage = getSetting('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+        const slackArrivedMessage = getSetting('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
+        
+        console.log('[Settings API] Returning settings:', {
+            multi_approval_threshold: threshold,
+            required_approvals: requiredApprovals,
+            slack_webhook_url: slackWebhookUrl ? 'configured' : 'empty'
+        });
         
         res.json({
             multi_approval_threshold: threshold,
-            required_approvals: requiredApprovals
+            required_approvals: requiredApprovals,
+            slack_webhook_url: slackWebhookUrl,
+            slack_new_request_message: slackNewRequestMessage,
+            slack_approved_message: slackApprovedMessage,
+            slack_ordered_message: slackOrderedMessage,
+            slack_arrived_message: slackArrivedMessage
         });
     } catch (error) {
+        console.error('[Settings API] Error:', error);
         res.status(500).json({ error: 'Failed to retrieve settings' });
     }
 });
 
 app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
     try {
-        const { multi_approval_threshold, required_approvals } = req.body;
+        const { 
+            multi_approval_threshold, 
+            required_approvals,
+            slack_webhook_url,
+            slack_new_request_message,
+            slack_approved_message,
+            slack_ordered_message,
+            slack_arrived_message
+        } = req.body;
         
         // Validate inputs
         if (multi_approval_threshold !== undefined) {
@@ -810,6 +1029,37 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
             ).run(approvals.toString(), 'required_approvals');
         }
         
+        // Update Slack settings
+        if (slack_webhook_url !== undefined) {
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(slack_webhook_url, 'slack_webhook_url');
+        }
+        
+        if (slack_new_request_message !== undefined) {
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(slack_new_request_message, 'slack_new_request_message');
+        }
+        
+        if (slack_approved_message !== undefined) {
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(slack_approved_message, 'slack_approved_message');
+        }
+        
+        if (slack_ordered_message !== undefined) {
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(slack_ordered_message, 'slack_ordered_message');
+        }
+        
+        if (slack_arrived_message !== undefined) {
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(slack_arrived_message, 'slack_arrived_message');
+        }
+        
         // Return updated values
         const threshold = getMultiApprovalThreshold();
         const requiredApprovalCount = getRequiredApprovals();
@@ -817,10 +1067,77 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
         res.json({
             success: true,
             multi_approval_threshold: threshold,
-            required_approvals: requiredApprovalCount
+            required_approvals: requiredApprovalCount,
+            slack_webhook_url: getSetting('slack_webhook_url', ''),
+            slack_new_request_message: getSetting('slack_new_request_message', ''),
+            slack_approved_message: getSetting('slack_approved_message', ''),
+            slack_ordered_message: getSetting('slack_ordered_message', ''),
+            slack_arrived_message: getSetting('slack_arrived_message', '')
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update settings' });
+    }
+});
+
+// Test Slack webhook
+app.post('/api/settings/test-slack', requireAuth, requireRole('admin'), async (req, res) => {
+    const { webhook_url } = req.body;
+    
+    if (!webhook_url || webhook_url.trim() === '') {
+        return res.status(400).json({ error: 'Webhook URL is required' });
+    }
+    
+    try {
+        const https = require('https');
+        const url = new URL(webhook_url);
+        const testMessage = '🧪 Test notification from Purchasing Tracker! Your Slack integration is working correctly.';
+        const postData = JSON.stringify({ text: testMessage });
+
+        const options = {
+            hostname: url.hostname,
+            port: 443,
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+
+        return new Promise((resolve, reject) => {
+            const request = https.request(options, (response) => {
+                let data = '';
+                
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+                
+                response.on('end', () => {
+                    if (response.statusCode === 200) {
+                        res.json({ success: true, message: 'Test message sent successfully' });
+                    } else {
+                        res.status(400).json({ 
+                            error: `Slack returned status ${response.statusCode}. Please check your webhook URL.` 
+                        });
+                    }
+                    resolve();
+                });
+            });
+
+            request.on('error', (error) => {
+                console.error('Error sending test Slack notification:', error);
+                res.status(500).json({ 
+                    error: 'Failed to send test message. Please check your webhook URL.' 
+                });
+                reject(error);
+            });
+
+            request.write(postData);
+            request.end();
+        });
+    } catch (error) {
+        console.error('Error testing Slack webhook:', error);
+        res.status(500).json({ error: 'Invalid webhook URL format' });
     }
 });
 

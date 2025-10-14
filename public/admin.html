@@ -165,7 +165,7 @@
                     <h2>Approval Settings</h2>
                     <p style="color: #666; margin-bottom: 2rem;">Configure the multi-approval system for high-value purchase requests.</p>
                     
-                    <form id="settingsForm" style="max-width: 600px;">
+                    <form id="settingsForm" style="max-width: 800px;">
                         <div class="form-group">
                             <label>Multi-Approval Threshold ($)</label>
                             <input type="number" id="multiApprovalThreshold" step="0.01" min="0" required>
@@ -176,6 +176,44 @@
                             <label>Required Approvals</label>
                             <input type="number" id="requiredApprovals" min="1" required>
                             <small style="color: #666;">Number of approvals needed for high-value purchases</small>
+                        </div>
+                        
+                        <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e9ecef;">
+                        
+                        <h3 style="margin-bottom: 1rem;">Slack Notifications</h3>
+                        <p style="color: #666; margin-bottom: 1.5rem;">Configure Slack webhook notifications for important purchase events.</p>
+                        
+                        <div class="form-group">
+                            <label>Slack Webhook URL</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="url" id="slackWebhookUrl" placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL" style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="testSlackWebhook()" style="white-space: nowrap;">Test Webhook</button>
+                            </div>
+                            <small style="color: #666;">Leave empty to disable Slack notifications. Get your webhook URL from <a href="https://api.slack.com/messaging/webhooks" target="_blank" style="color: #667eea;">Slack Incoming Webhooks</a></small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>New Request Message Template</label>
+                            <textarea id="slackNewRequestMessage" rows="2" style="font-family: inherit;"></textarea>
+                            <small style="color: #666;">Sent when a new request is submitted. Variables: {{id}}, {{requester}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Approved Request Message Template</label>
+                            <textarea id="slackApprovedMessage" rows="2" style="font-family: inherit;"></textarea>
+                            <small style="color: #666;">Sent when a request is approved and ready to order. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Ordered Purchase Message Template</label>
+                            <textarea id="slackOrderedMessage" rows="2" style="font-family: inherit;"></textarea>
+                            <small style="color: #666;">Sent when a purchase order is marked as ordered from vendor. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Arrived Order Message Template</label>
+                            <textarea id="slackArrivedMessage" rows="2" style="font-family: inherit;"></textarea>
+                            <small style="color: #666;">Sent when an order arrives and needs to be received. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
                         </div>
                         
                         <button type="submit" class="btn btn-primary">Save Settings</button>
@@ -548,12 +586,21 @@
         // Settings Management
         async function loadSettings() {
             try {
+                console.log('[Admin] Loading settings...');
                 const response = await fetch('/api/settings');
                 const data = await response.json();
+                console.log('[Admin] Settings received:', data);
                 
                 document.getElementById('multiApprovalThreshold').value = data.multi_approval_threshold;
                 document.getElementById('requiredApprovals').value = data.required_approvals;
+                document.getElementById('slackWebhookUrl').value = data.slack_webhook_url || '';
+                document.getElementById('slackNewRequestMessage').value = data.slack_new_request_message || '';
+                document.getElementById('slackApprovedMessage').value = data.slack_approved_message || '';
+                document.getElementById('slackOrderedMessage').value = data.slack_ordered_message || '';
+                document.getElementById('slackArrivedMessage').value = data.slack_arrived_message || '';
+                console.log('[Admin] Settings loaded successfully');
             } catch (error) {
+                console.error('[Admin] Failed to load settings:', error);
                 showError('Failed to load settings');
             }
         }
@@ -563,6 +610,11 @@
             
             const threshold = document.getElementById('multiApprovalThreshold').value;
             const approvals = document.getElementById('requiredApprovals').value;
+            const slackWebhookUrl = document.getElementById('slackWebhookUrl').value;
+            const slackNewRequestMessage = document.getElementById('slackNewRequestMessage').value;
+            const slackApprovedMessage = document.getElementById('slackApprovedMessage').value;
+            const slackOrderedMessage = document.getElementById('slackOrderedMessage').value;
+            const slackArrivedMessage = document.getElementById('slackArrivedMessage').value;
             
             try {
                 const response = await fetch('/api/settings', {
@@ -570,7 +622,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         multi_approval_threshold: parseFloat(threshold),
-                        required_approvals: parseInt(approvals)
+                        required_approvals: parseInt(approvals),
+                        slack_webhook_url: slackWebhookUrl,
+                        slack_new_request_message: slackNewRequestMessage,
+                        slack_approved_message: slackApprovedMessage,
+                        slack_ordered_message: slackOrderedMessage,
+                        slack_arrived_message: slackArrivedMessage
                     })
                 });
                 
@@ -586,6 +643,34 @@
                 showError('Failed to update settings');
             }
         });
+
+        // Test Slack webhook
+        async function testSlackWebhook() {
+            const webhookUrl = document.getElementById('slackWebhookUrl').value;
+            
+            if (!webhookUrl || webhookUrl.trim() === '') {
+                showError('Please enter a webhook URL first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/settings/test-slack', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ webhook_url: webhookUrl })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Test message sent! Check your Slack channel.');
+                } else {
+                    showError(data.error || 'Failed to send test message');
+                }
+            } catch (error) {
+                showError('Failed to send test message');
+            }
+        }
 
         // Utility functions - Toast notifications
         function showToast(message, type = 'success') {
