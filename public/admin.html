@@ -56,29 +56,39 @@
             <div class="tab-content active" id="users-tab">
                 <div class="card">
                     <h2>User Management</h2>
-                    <form id="addUserForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 1rem; align-items: end; margin-bottom: 2rem;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Username</label>
-                            <input type="text" id="newUsername" required>
+                    <form id="addUserForm" style="margin-bottom: 2rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Username</label>
+                                <input type="text" id="newUsername" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Password</label>
+                                <input type="password" id="newPassword" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Full Name</label>
+                                <input type="text" id="newFullName" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Role</label>
+                                <select id="newRole" required>
+                                    <option value="">Select Role...</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="approver">Approver</option>
+                                    <option value="purchaser">Purchaser</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Password</label>
-                            <input type="password" id="newPassword" required>
+                        <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Slack User ID (optional)</label>
+                                <input type="text" id="newSlackUserId" placeholder="e.g., U01234ABCDE">
+                                <small style="color: #6c757d;">For Slack mentions in notifications. Find in Slack profile.</small>
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="cancelEditUserBtn" onclick="cancelEditUser()" style="display: none;">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Add User</button>
                         </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Full Name</label>
-                            <input type="text" id="newFullName" required>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Role</label>
-                            <select id="newRole" required>
-                                <option value="">Select Role...</option>
-                                <option value="admin">Admin</option>
-                                <option value="approver">Approver</option>
-                                <option value="purchaser">Purchaser</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Add User</button>
                     </form>
 
                     <div id="usersTableContainer">
@@ -87,6 +97,7 @@
                                 <tr>
                                     <th>Username</th>
                                     <th>Full Name</th>
+                                    <th>Slack User ID</th>
                                     <th>Role</th>
                                     <th>Created</th>
                                     <th>Actions</th>
@@ -129,18 +140,27 @@
             <div class="tab-content" id="departments-tab">
                 <div class="card">
                     <h2>Category Management</h2>
-                    <form id="addDepartmentForm" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end; margin-bottom: 2rem;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Category Name</label>
-                            <input type="text" id="newDepartmentName" required>
+                    <form id="addDepartmentForm" style="margin-bottom: 2rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Category Name</label>
+                                <input type="text" id="newDepartmentName" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Assigned Approver (Optional)</label>
+                                <select id="newDepartmentApprover">
+                                    <option value="">Any Approver</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label>Assigned Approver (Optional)</label>
-                            <select id="newDepartmentApprover">
-                                <option value="">Any Approver</option>
-                            </select>
+                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Slack Approval Message Template (Optional)</label>
+                                <textarea id="newSlackApprovalMessage" rows="2" placeholder="e.g., {{category}} request #{{id}} ({{order_name}}) approved by {{approver}} - ${{total}} from {{vendor}} - {{link}}"></textarea>
+                                <small style="color: #6c757d;">Variables: {{id}}, {{order_name}}, {{category}}, {{approver}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{link}}</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Category</button>
                         </div>
-                        <button type="submit" class="btn btn-primary">Add Category</button>
                     </form>
 
                     <div id="departmentsTableContainer">
@@ -180,6 +200,16 @@
                         
                         <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e9ecef;">
                         
+                        <h3 style="margin-bottom: 1rem;">Application Settings</h3>
+                        
+                        <div class="form-group">
+                            <label>Base URL</label>
+                            <input type="url" id="baseUrl" placeholder="http://localhost:3000" required>
+                            <small style="color: #666;">The base URL of your application (used for generating direct links in notifications). Example: http://localhost:3000 or https://purchasing.yourcompany.com</small>
+                        </div>
+                        
+                        <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e9ecef;">
+                        
                         <h3 style="margin-bottom: 1rem;">Slack Notifications</h3>
                         <p style="color: #666; margin-bottom: 1.5rem;">Configure Slack webhook notifications for important purchase events.</p>
                         
@@ -193,27 +223,27 @@
                         </div>
                         
                         <div class="form-group">
-                            <label>New Request Message Template</label>
-                            <textarea id="slackNewRequestMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when a new request is submitted. Variables: {{id}}, {{requester}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
+                            <label>Approved Request Message Template</label>
+                            <textarea id="slackApprovedMessage" rows="2" style="font-family: inherit;"></textarea>
+                            <small style="color: #666;">Default approval template (overridden by category-specific templates). Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{order_name}}, {{category}}, {{approver}}, {{link}}</small>
                         </div>
                         
                         <div class="form-group">
-                            <label>Approved Request Message Template</label>
-                            <textarea id="slackApprovedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when a request is approved and ready to order. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
+                            <label>Multi-Approval Required Message Template</label>
+                            <textarea id="slackMultiApprovalMessage" rows="2" style="font-family: inherit;"></textarea>
+                            <small style="color: #666;">Sent when a request requires multiple approvals. Variables: {{id}}, {{vendor}}, {{total}}, {{order_name}}, {{required_approvals}}, {{link}}</small>
                         </div>
                         
                         <div class="form-group">
                             <label>Ordered Purchase Message Template</label>
                             <textarea id="slackOrderedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when a purchase order is marked as ordered from vendor. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
+                            <small style="color: #666;">Sent when a purchase order is marked as ordered from vendor. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{link}}</small>
                         </div>
                         
                         <div class="form-group">
                             <label>Arrived Order Message Template</label>
                             <textarea id="slackArrivedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when an order arrives and needs to be received. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}</small>
+                            <small style="color: #666;">Sent when an order arrives and needs to be received. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{link}}</small>
                         </div>
                         
                         <button type="submit" class="btn btn-primary">Save Settings</button>
@@ -349,12 +379,18 @@
                 
                 data.users.forEach(user => {
                     const row = document.createElement('tr');
+                    const slackUserIdEscaped = (user.slack_user_id || '').replace(/'/g, "\\'");
+                    const slackUserIdDisplay = user.slack_user_id 
+                        ? `<code style="background: #f5f7fa; padding: 2px 6px; border-radius: 3px; font-size: 0.9em;">${user.slack_user_id}</code>`
+                        : '<span style="color: #999; font-style: italic;">Not set</span>';
                     row.innerHTML = `
                         <td>${user.username}</td>
                         <td>${user.full_name}</td>
+                        <td>${slackUserIdDisplay}</td>
                         <td><span class="status-badge status-${user.role}">${user.role}</span></td>
                         <td>${new Date(user.created_at).toLocaleDateString()}</td>
                         <td>
+                            <button onclick="editUser(${user.id}, '${user.username.replace(/'/g, "\\'")}', '${user.full_name.replace(/'/g, "\\'")}', '${user.role}', '${slackUserIdEscaped}')" class="btn btn-small btn-secondary">Edit</button>
                             <button onclick="deleteUser(${user.id}, '${user.username}')" class="btn btn-small btn-danger">Delete</button>
                         </td>
                     `;
@@ -365,6 +401,35 @@
             }
         }
 
+        let editingUserId = null;
+        
+        function editUser(id, username, fullName, role, slackUserId) {
+            editingUserId = id;
+            document.getElementById('newUsername').value = username;
+            document.getElementById('newUsername').disabled = true; // Can't change username
+            document.getElementById('newPassword').value = '';
+            document.getElementById('newPassword').required = false;
+            document.getElementById('newPassword').placeholder = 'Leave blank to keep current password';
+            document.getElementById('newFullName').value = fullName;
+            document.getElementById('newRole').value = role;
+            document.getElementById('newSlackUserId').value = slackUserId || '';
+            document.querySelector('#addUserForm button[type="submit"]').textContent = 'Update User';
+            document.getElementById('cancelEditUserBtn').style.display = 'block';
+            
+            // Scroll to form
+            document.getElementById('addUserForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        function cancelEditUser() {
+            editingUserId = null;
+            document.getElementById('addUserForm').reset();
+            document.getElementById('newUsername').disabled = false;
+            document.getElementById('newPassword').required = true;
+            document.getElementById('newPassword').placeholder = '';
+            document.querySelector('#addUserForm button[type="submit"]').textContent = 'Add User';
+            document.getElementById('cancelEditUserBtn').style.display = 'none';
+        }
+
         document.getElementById('addUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -372,25 +437,53 @@
             const password = document.getElementById('newPassword').value;
             const fullName = document.getElementById('newFullName').value;
             const role = document.getElementById('newRole').value;
+            const slackUserId = document.getElementById('newSlackUserId').value.trim();
+            
+            console.log('[User Form] Submitting with slack_user_id:', slackUserId);
             
             try {
-                const response = await fetch('/api/users', {
-                    method: 'POST',
+                const url = editingUserId ? `/api/users/${editingUserId}` : '/api/users';
+                const method = editingUserId ? 'PUT' : 'POST';
+                
+                const body = { 
+                    full_name: fullName, 
+                    role,
+                    slack_user_id: slackUserId || null
+                };
+                
+                // Only include password if it's provided (for editing) or if creating new user
+                if (!editingUserId) {
+                    body.username = username;
+                    body.password = password;
+                } else if (password) {
+                    body.password = password;
+                }
+                
+                console.log('[User Form] Request body:', body);
+                
+                const response = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, full_name: fullName, role })
+                    body: JSON.stringify(body)
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    showSuccess('User created successfully');
+                    showSuccess(editingUserId ? 'User updated successfully' : 'User created successfully');
                     document.getElementById('addUserForm').reset();
+                    document.getElementById('newUsername').disabled = false;
+                    document.getElementById('newPassword').required = true;
+                    document.getElementById('newPassword').placeholder = '';
+                    document.querySelector('#addUserForm button[type="submit"]').textContent = 'Add User';
+                    document.getElementById('cancelEditUserBtn').style.display = 'none';
+                    editingUserId = null;
                     loadUsers();
                 } else {
-                    showError(data.error || 'Failed to create user');
+                    showError(data.error || 'Failed to save user');
                 }
             } catch (error) {
-                showError('Failed to create user');
+                showError('Failed to save user');
             }
         });
 
@@ -507,12 +600,13 @@
                 
                 data.departments.forEach(dept => {
                     const row = document.createElement('tr');
+                    const slackMsg = dept.slack_approval_message ? dept.slack_approval_message.replace(/'/g, "\\'") : '';
                     row.innerHTML = `
                         <td>${dept.name}</td>
                         <td>${dept.approver_name || 'Any Approver'}</td>
                         <td>${new Date(dept.created_at).toLocaleDateString()}</td>
                         <td>
-                            <button onclick="editDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}', ${dept.approver_id || 'null'})" class="btn btn-small btn-secondary">Edit</button>
+                            <button onclick="editDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}', ${dept.approver_id || 'null'}, '${slackMsg}')" class="btn btn-small btn-secondary">Edit</button>
                             <button onclick="deleteDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}')" class="btn btn-small btn-danger">Delete</button>
                         </td>
                     `;
@@ -525,10 +619,11 @@
 
         let editingDepartmentId = null;
         
-        function editDepartment(id, name, approverId) {
+        function editDepartment(id, name, approverId, slackMessage) {
             editingDepartmentId = id;
             document.getElementById('newDepartmentName').value = name;
             document.getElementById('newDepartmentApprover').value = approverId || '';
+            document.getElementById('newSlackApprovalMessage').value = slackMessage || '';
             document.querySelector('#addDepartmentForm button[type="submit"]').textContent = 'Update Category';
         }
 
@@ -537,6 +632,7 @@
             
             const name = document.getElementById('newDepartmentName').value;
             const approverId = document.getElementById('newDepartmentApprover').value || null;
+            const slackApprovalMessage = document.getElementById('newSlackApprovalMessage').value.trim() || null;
             
             try {
                 const url = editingDepartmentId ? `/api/departments/${editingDepartmentId}` : '/api/departments';
@@ -545,7 +641,11 @@
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, approver_id: approverId })
+                    body: JSON.stringify({ 
+                        name, 
+                        approver_id: approverId,
+                        slack_approval_message: slackApprovalMessage
+                    })
                 });
                 
                 const data = await response.json();
@@ -593,9 +693,10 @@
                 
                 document.getElementById('multiApprovalThreshold').value = data.multi_approval_threshold;
                 document.getElementById('requiredApprovals').value = data.required_approvals;
+                document.getElementById('baseUrl').value = data.base_url || 'http://localhost:3000';
                 document.getElementById('slackWebhookUrl').value = data.slack_webhook_url || '';
-                document.getElementById('slackNewRequestMessage').value = data.slack_new_request_message || '';
                 document.getElementById('slackApprovedMessage').value = data.slack_approved_message || '';
+                document.getElementById('slackMultiApprovalMessage').value = data.slack_multi_approval_message || '';
                 document.getElementById('slackOrderedMessage').value = data.slack_ordered_message || '';
                 document.getElementById('slackArrivedMessage').value = data.slack_arrived_message || '';
                 console.log('[Admin] Settings loaded successfully');
@@ -610,9 +711,10 @@
             
             const threshold = document.getElementById('multiApprovalThreshold').value;
             const approvals = document.getElementById('requiredApprovals').value;
+            const baseUrl = document.getElementById('baseUrl').value;
             const slackWebhookUrl = document.getElementById('slackWebhookUrl').value;
-            const slackNewRequestMessage = document.getElementById('slackNewRequestMessage').value;
             const slackApprovedMessage = document.getElementById('slackApprovedMessage').value;
+            const slackMultiApprovalMessage = document.getElementById('slackMultiApprovalMessage').value;
             const slackOrderedMessage = document.getElementById('slackOrderedMessage').value;
             const slackArrivedMessage = document.getElementById('slackArrivedMessage').value;
             
@@ -623,9 +725,10 @@
                     body: JSON.stringify({
                         multi_approval_threshold: parseFloat(threshold),
                         required_approvals: parseInt(approvals),
+                        base_url: baseUrl,
                         slack_webhook_url: slackWebhookUrl,
-                        slack_new_request_message: slackNewRequestMessage,
                         slack_approved_message: slackApprovedMessage,
+                        slack_multi_approval_message: slackMultiApprovalMessage,
                         slack_ordered_message: slackOrderedMessage,
                         slack_arrived_message: slackArrivedMessage
                     })

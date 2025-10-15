@@ -167,6 +167,30 @@ function initializeDatabase() {
         // Column already exists, ignore
     }
 
+    // Add order_name column if it doesn't exist (migration)
+    try {
+        db.exec(`ALTER TABLE purchase_requests ADD COLUMN order_name TEXT`);
+        console.log('Added order_name column to purchase_requests table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
+    // Add slack_user_id to users table (migration)
+    try {
+        db.exec(`ALTER TABLE users ADD COLUMN slack_user_id TEXT`);
+        console.log('Added slack_user_id column to users table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
+    // Add slack notification templates to departments table (migration)
+    try {
+        db.exec(`ALTER TABLE departments ADD COLUMN slack_approval_message TEXT`);
+        console.log('Added slack_approval_message column to departments table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
     // Create approvals tracking table
     try {
         db.exec(`
@@ -204,6 +228,7 @@ function initializeDatabase() {
     if (settingsCount.count === 0) {
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('multi_approval_threshold', '1000');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('required_approvals', '5');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('base_url', 'http://localhost:3000');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_webhook_url', '');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
@@ -211,6 +236,13 @@ function initializeDatabase() {
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
         console.log('Default settings initialized');
     } else {
+        // Add base_url if it doesn't exist (for existing databases)
+        const baseUrlExists = db.prepare('SELECT COUNT(*) as count FROM settings WHERE key = ?').get('base_url');
+        if (baseUrlExists.count === 0) {
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('base_url', 'http://localhost:3000');
+            console.log('Base URL setting added');
+        }
+        
         // Add Slack settings if they don't exist (for existing databases)
         const slackWebhookExists = db.prepare('SELECT COUNT(*) as count FROM settings WHERE key = ?').get('slack_webhook_url');
         if (slackWebhookExists.count === 0) {
@@ -308,12 +340,18 @@ async function sendSlackNotification(messageType, requestData) {
         }
 
         // Replace placeholders with actual data
+        // Generate direct link to the request
+        const baseUrl = getSetting('base_url', 'http://localhost:3000');
+        const requestLink = `${baseUrl}/tracking.html?id=${requestData.id}`;
+        
         let message = messageTemplate
             .replace(/\{\{id\}\}/g, requestData.id || '')
             .replace(/\{\{requester\}\}/g, requestData.requester_name || '')
             .replace(/\{\{vendor\}\}/g, requestData.vendor_name || '')
             .replace(/\{\{total\}\}/g, requestData.total ? requestData.total.toFixed(2) : '0.00')
-            .replace(/\{\{requested_arrival_date\}\}/g, requestData.requested_arrival_date ? formatDate(requestData.requested_arrival_date) : 'Not specified');
+            .replace(/\{\{requested_arrival_date\}\}/g, requestData.requested_arrival_date ? formatDate(requestData.requested_arrival_date) : 'Not specified')
+            .replace(/\{\{order_name\}\}/g, requestData.order_name || 'Unnamed Order')
+            .replace(/\{\{link\}\}/g, requestLink);
 
         console.log(`[Slack] Sending message: ${message}`);
 
@@ -349,6 +387,94 @@ async function sendSlackNotification(messageType, requestData) {
         req.end();
     } catch (error) {
         console.error('[Slack] Exception in sendSlackNotification:', error);
+    }
+}
+
+// Send category-specific or multi-approval Slack notification
+async function sendCategoryApprovalNotification(requestData, departmentInfo) {
+    try {
+        console.log(`[Slack] Attempting to send category approval notification`, requestData);
+        const webhookUrl = getSetting('slack_webhook_url', '');
+        
+        // Don't send if webhook URL is not configured
+        if (!webhookUrl || webhookUrl.trim() === '') {
+            console.log('[Slack] Webhook URL not configured, skipping notification');
+            return;
+        }
+
+        let messageTemplate = '';
+        
+        // Determine which template to use
+        if (requestData.requires_multi_approval) {
+            // Use multi-approval template
+            messageTemplate = getSetting('slack_multi_approval_message', 
+                'Multi-approval required: Request #{{id}} ({{order_name}}) for ${{total}} from {{vendor}} requires {{required_approvals}} approvals');
+        } else if (departmentInfo && departmentInfo.slack_approval_message) {
+            // Use category-specific template
+            messageTemplate = departmentInfo.slack_approval_message;
+        } else {
+            // Fall back to default approved message
+            messageTemplate = getSetting('slack_approved_message', 
+                'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
+        }
+
+        // Get approver's Slack user ID if available
+        let approverMention = requestData.approver_name || 'Unknown';
+        if (requestData.approver_slack_id) {
+            approverMention = `<@${requestData.approver_slack_id}>`;
+        }
+
+        // Generate direct link to the request
+        const baseUrl = getSetting('base_url', 'http://localhost:3000');
+        const requestLink = `${baseUrl}/approval.html?id=${requestData.id}`;
+
+        // Replace placeholders with actual data
+        let message = messageTemplate
+            .replace(/\{\{id\}\}/g, requestData.id || '')
+            .replace(/\{\{requester\}\}/g, requestData.requester_name || '')
+            .replace(/\{\{vendor\}\}/g, requestData.vendor_name || '')
+            .replace(/\{\{total\}\}/g, requestData.total ? requestData.total.toFixed(2) : '0.00')
+            .replace(/\{\{requested_arrival_date\}\}/g, requestData.requested_arrival_date ? formatDate(requestData.requested_arrival_date) : 'Not specified')
+            .replace(/\{\{order_name\}\}/g, requestData.order_name || 'Unnamed Order')
+            .replace(/\{\{category\}\}/g, departmentInfo ? departmentInfo.name : 'Unknown')
+            .replace(/\{\{approver\}\}/g, approverMention)
+            .replace(/\{\{required_approvals\}\}/g, requestData.required_approvals || getRequiredApprovals())
+            .replace(/\{\{link\}\}/g, requestLink);
+
+        console.log(`[Slack] Sending category approval message: ${message}`);
+
+        // Send to Slack using native https module
+        const https = require('https');
+        const url = new URL(webhookUrl);
+        const postData = JSON.stringify({ text: message });
+
+        const options = {
+            hostname: url.hostname,
+            port: 443,
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            if (res.statusCode !== 200) {
+                console.error('[Slack] Failed to send notification, status:', res.statusCode);
+            } else {
+                console.log('[Slack] Category approval notification sent successfully');
+            }
+        });
+
+        req.on('error', (error) => {
+            console.error('[Slack] Error sending notification:', error);
+        });
+
+        req.write(postData);
+        req.end();
+    } catch (error) {
+        console.error('[Slack] Exception in sendCategoryApprovalNotification:', error);
     }
 }
 
@@ -426,7 +552,7 @@ app.post('/api/public/departments', (req, res) => {
 });
 
 app.post('/api/public/purchase-requests', (req, res) => {
-    const { vendor_id, department_id, requester_name, items, tax_rate, shipping_cost, notes, requested_arrival_date } = req.body;
+    const { vendor_id, department_id, requester_name, order_name, items, tax_rate, shipping_cost, notes, requested_arrival_date } = req.body;
     
     if (!requester_name || requester_name.trim().length === 0) {
         return res.status(400).json({ error: 'Requester name is required' });
@@ -462,9 +588,9 @@ app.post('/api/public/purchase-requests', (req, res) => {
         
         // Insert purchase request
         const result = db.prepare(`
-            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, subtotal, tax_amount, shipping_cost, total, notes, requires_multi_approval, approval_count, requested_arrival_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-        `).run(vendor_id, department_id, publicUser.id, requester_name.trim(), subtotal, tax_amount, shipping, total, notes, requiresMultiApproval, requested_arrival_date || null);
+            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, order_name, subtotal, tax_amount, shipping_cost, total, notes, requires_multi_approval, approval_count, requested_arrival_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+        `).run(vendor_id, department_id, publicUser.id, requester_name.trim(), order_name ? order_name.trim() : null, subtotal, tax_amount, shipping, total, notes, requiresMultiApproval, requested_arrival_date || null);
         
         const requestId = result.lastInsertRowid;
         
@@ -479,17 +605,22 @@ app.post('/api/public/purchase-requests', (req, res) => {
             insertItem.run(requestId, item.product_name, item.description, item.purchase_link || null, item.quantity, item.unit_price, line_total);
         });
         
-        // Get vendor name for notification
-        const vendor = db.prepare('SELECT name FROM vendors WHERE id = ?').get(vendor_id);
+        // Get full request details for notification
+        const requestDetails = db.prepare(`
+            SELECT pr.*, v.name as vendor_name, d.name as department_name, 
+                   u.full_name as approver_name, u.slack_user_id as approver_slack_id
+            FROM purchase_requests pr
+            JOIN vendors v ON pr.vendor_id = v.id
+            JOIN departments d ON pr.department_id = d.id
+            LEFT JOIN users u ON d.approver_id = u.id
+            WHERE pr.id = ?
+        `).get(requestId);
         
-        // Send Slack notification for new request
-        sendSlackNotification('new_request', {
-            id: requestId,
-            requester_name: requester_name.trim(),
-            vendor_name: vendor ? vendor.name : 'Unknown Vendor',
-            total: total,
-            requested_arrival_date: requested_arrival_date
-        });
+        // Get department info for the category-specific approval message
+        const departmentInfo = db.prepare('SELECT id, name, slack_approval_message FROM departments WHERE id = ?').get(department_id);
+        
+        // Send category approval notification
+        sendCategoryApprovalNotification(requestDetails, departmentInfo);
         
         res.json({ success: true, id: requestId });
     } catch (error) {
@@ -582,10 +713,10 @@ app.get('/api/departments', requireAuth, (req, res) => {
 });
 
 app.post('/api/departments', requireAuth, requireRole('admin'), (req, res) => {
-    const { name, approver_id } = req.body;
+    const { name, approver_id, slack_approval_message } = req.body;
     
     try {
-        const result = db.prepare('INSERT INTO departments (name, approver_id) VALUES (?, ?)').run(name, approver_id || null);
+        const result = db.prepare('INSERT INTO departments (name, approver_id, slack_approval_message) VALUES (?, ?, ?)').run(name, approver_id || null, slack_approval_message || null);
         res.json({ success: true, id: result.lastInsertRowid });
     } catch (error) {
         res.status(400).json({ error: 'Failed to create department' });
@@ -593,10 +724,10 @@ app.post('/api/departments', requireAuth, requireRole('admin'), (req, res) => {
 });
 
 app.put('/api/departments/:id', requireAuth, requireRole('admin'), (req, res) => {
-    const { name, approver_id } = req.body;
+    const { name, approver_id, slack_approval_message } = req.body;
     
     try {
-        db.prepare('UPDATE departments SET name = ?, approver_id = ? WHERE id = ?').run(name, approver_id || null, req.params.id);
+        db.prepare('UPDATE departments SET name = ?, approver_id = ?, slack_approval_message = ? WHERE id = ?').run(name, approver_id || null, slack_approval_message || null, req.params.id);
         res.json({ success: true });
     } catch (error) {
         res.status(400).json({ error: 'Failed to update department' });
@@ -663,7 +794,7 @@ app.get('/api/purchase-requests/:id', requireAuth, (req, res) => {
 });
 
 app.post('/api/purchase-requests', requireAuth, (req, res) => {
-    const { vendor_id, department_id, items, tax_rate, notes, requested_arrival_date } = req.body;
+    const { vendor_id, department_id, order_name, items, tax_rate, notes, requested_arrival_date } = req.body;
     
     if (!items || items.length === 0) {
         return res.status(400).json({ error: 'At least one item is required' });
@@ -680,9 +811,9 @@ app.post('/api/purchase-requests', requireAuth, (req, res) => {
         
         // Insert purchase request
         const result = db.prepare(`
-            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, subtotal, tax_amount, total, notes, requested_arrival_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(vendor_id, department_id, req.session.userId, requesterName, subtotal, tax_amount, total, notes, requested_arrival_date || null);
+            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, order_name, subtotal, tax_amount, total, notes, requested_arrival_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(vendor_id, department_id, req.session.userId, requesterName, order_name ? order_name.trim() : null, subtotal, tax_amount, total, notes, requested_arrival_date || null);
         
         const requestId = result.lastInsertRowid;
         
@@ -697,17 +828,22 @@ app.post('/api/purchase-requests', requireAuth, (req, res) => {
             insertItem.run(requestId, item.product_name, item.description, item.purchase_link || null, item.quantity, item.unit_price, line_total);
         });
         
-        // Get vendor name for notification
-        const vendor = db.prepare('SELECT name FROM vendors WHERE id = ?').get(vendor_id);
+        // Get full request details for notification
+        const requestDetails = db.prepare(`
+            SELECT pr.*, v.name as vendor_name, d.name as department_name, 
+                   u.full_name as approver_name, u.slack_user_id as approver_slack_id
+            FROM purchase_requests pr
+            JOIN vendors v ON pr.vendor_id = v.id
+            JOIN departments d ON pr.department_id = d.id
+            LEFT JOIN users u ON d.approver_id = u.id
+            WHERE pr.id = ?
+        `).get(requestId);
         
-        // Send Slack notification for new request
-        sendSlackNotification('new_request', {
-            id: requestId,
-            requester_name: requesterName,
-            vendor_name: vendor ? vendor.name : 'Unknown Vendor',
-            total: total,
-            requested_arrival_date: requested_arrival_date
-        });
+        // Get department info for the category-specific approval message
+        const departmentInfo = db.prepare('SELECT id, name, slack_approval_message FROM departments WHERE id = ?').get(department_id);
+        
+        // Send category approval notification
+        sendCategoryApprovalNotification(requestDetails, departmentInfo);
         
         res.json({ success: true, id: requestId });
     } catch (error) {
@@ -775,16 +911,25 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                         WHERE id = ?
                     `).run(req.session.userId, requestId);
                     
-                    // Get vendor name for notification
+                    // Get full request details including approver info
                     const requestDetails = db.prepare(`
-                        SELECT pr.*, v.name as vendor_name
+                        SELECT pr.*, v.name as vendor_name, d.name as department_name, 
+                               u.full_name as approver_name, u.slack_user_id as approver_slack_id
                         FROM purchase_requests pr
                         JOIN vendors v ON pr.vendor_id = v.id
+                        LEFT JOIN departments d ON pr.department_id = d.id
+                        LEFT JOIN users u ON u.id = ?
                         WHERE pr.id = ?
-                    `).get(requestId);
+                    `).get(req.session.userId, requestId);
                     
-                    // Send Slack notification for approved request
-                    sendSlackNotification('approved', requestDetails);
+                    requestDetails.required_approvals = requiredApprovals;
+                    
+                    // Get department info for category-specific notification
+                    const departmentInfo = requestDetails.department_id ? 
+                        db.prepare('SELECT * FROM departments WHERE id = ?').get(requestDetails.department_id) : null;
+                    
+                    // Send category-specific approval notification
+                    sendCategoryApprovalNotification(requestDetails, departmentInfo);
                     
                     return res.json({ success: true, message: `Request fully approved with ${newCount} approvals`, approved: true });
                 } else {
@@ -798,16 +943,23 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                     WHERE id = ?
                 `).run(req.session.userId, requestId);
                 
-                // Get vendor name for notification
+                // Get full request details including approver info
                 const requestDetails = db.prepare(`
-                    SELECT pr.*, v.name as vendor_name
+                    SELECT pr.*, v.name as vendor_name, d.name as department_name,
+                           u.full_name as approver_name, u.slack_user_id as approver_slack_id
                     FROM purchase_requests pr
                     JOIN vendors v ON pr.vendor_id = v.id
+                    LEFT JOIN departments d ON pr.department_id = d.id
+                    LEFT JOIN users u ON u.id = ?
                     WHERE pr.id = ?
-                `).get(requestId);
+                `).get(req.session.userId, requestId);
                 
-                // Send Slack notification for approved request
-                sendSlackNotification('approved', requestDetails);
+                // Get department info for category-specific notification
+                const departmentInfo = requestDetails.department_id ? 
+                    db.prepare('SELECT * FROM departments WHERE id = ?').get(requestDetails.department_id) : null;
+                
+                // Send category-specific approval notification
+                sendCategoryApprovalNotification(requestDetails, departmentInfo);
             }
         } else if (status === 'rejected') {
             db.prepare(`
@@ -898,7 +1050,7 @@ app.put('/api/purchase-requests/:requestId/items/:itemId/receive', requireAuth, 
 
 // Users management (admin only)
 app.get('/api/users', requireAuth, requireRole('admin'), (req, res) => {
-    const users = db.prepare('SELECT id, username, role, full_name, created_at FROM users').all();
+    const users = db.prepare('SELECT id, username, role, full_name, slack_user_id, created_at FROM users').all();
     res.json({ users });
 });
 
@@ -908,7 +1060,7 @@ app.get('/api/approvers', requireAuth, requireRole('admin'), (req, res) => {
 });
 
 app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
-    const { username, password, role, full_name } = req.body;
+    const { username, password, role, full_name, slack_user_id } = req.body;
     
     if (!username || !password || !role || !full_name) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -921,8 +1073,8 @@ app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
     try {
         const hashedPassword = bcrypt.hashSync(password, 10);
         const result = db.prepare(
-            'INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)'
-        ).run(username, hashedPassword, role, full_name);
+            'INSERT INTO users (username, password, role, full_name, slack_user_id) VALUES (?, ?, ?, ?, ?)'
+        ).run(username, hashedPassword, role, full_name, slack_user_id || null);
         
         res.json({ success: true, id: result.lastInsertRowid });
     } catch (error) {
@@ -931,6 +1083,50 @@ app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
         } else {
             res.status(400).json({ error: 'Failed to create user' });
         }
+    }
+});
+
+app.put('/api/users/:id', requireAuth, requireRole('admin'), (req, res) => {
+    const { role, full_name, slack_user_id, password } = req.body;
+    
+    console.log('[PUT /api/users/:id] Received data:', { role, full_name, slack_user_id, password: password ? '[PROVIDED]' : '[NOT PROVIDED]' });
+    
+    if (!role || !full_name) {
+        return res.status(400).json({ error: 'Role and full name are required' });
+    }
+    
+    if (!['admin', 'approver', 'purchaser'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+    }
+    
+    try {
+        // Don't allow changing your own role
+        if (parseInt(req.params.id) === req.session.userId) {
+            const currentUser = db.prepare('SELECT role FROM users WHERE id = ?').get(req.params.id);
+            if (currentUser && currentUser.role !== role) {
+                return res.status(400).json({ error: 'Cannot change your own role' });
+            }
+        }
+        
+        // Update user - with or without password change
+        if (password && password.trim().length > 0) {
+            const hashedPassword = bcrypt.hashSync(password, 10);
+            console.log('[PUT /api/users/:id] Updating with password, slack_user_id:', slack_user_id || null);
+            db.prepare(
+                'UPDATE users SET password = ?, role = ?, full_name = ?, slack_user_id = ? WHERE id = ?'
+            ).run(hashedPassword, role, full_name, slack_user_id || null, req.params.id);
+        } else {
+            console.log('[PUT /api/users/:id] Updating without password, slack_user_id:', slack_user_id || null);
+            db.prepare(
+                'UPDATE users SET role = ?, full_name = ?, slack_user_id = ? WHERE id = ?'
+            ).run(role, full_name, slack_user_id || null, req.params.id);
+        }
+        
+        console.log('[PUT /api/users/:id] User updated successfully');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[PUT /api/users/:id] Error updating user:', error);
+        res.status(400).json({ error: 'Failed to update user' });
     }
 });
 
@@ -967,6 +1163,7 @@ app.get('/api/settings', requireAuth, requireRole('admin', 'approver'), (req, re
     try {
         const threshold = getMultiApprovalThreshold();
         const requiredApprovals = getRequiredApprovals();
+        const baseUrl = getSetting('base_url', 'http://localhost:3000');
         const slackWebhookUrl = getSetting('slack_webhook_url', '');
         const slackNewRequestMessage = getSetting('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
         const slackApprovedMessage = getSetting('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
@@ -976,12 +1173,14 @@ app.get('/api/settings', requireAuth, requireRole('admin', 'approver'), (req, re
         console.log('[Settings API] Returning settings:', {
             multi_approval_threshold: threshold,
             required_approvals: requiredApprovals,
+            base_url: baseUrl,
             slack_webhook_url: slackWebhookUrl ? 'configured' : 'empty'
         });
         
         res.json({
             multi_approval_threshold: threshold,
             required_approvals: requiredApprovals,
+            base_url: baseUrl,
             slack_webhook_url: slackWebhookUrl,
             slack_new_request_message: slackNewRequestMessage,
             slack_approved_message: slackApprovedMessage,
@@ -999,6 +1198,7 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
         const { 
             multi_approval_threshold, 
             required_approvals,
+            base_url,
             slack_webhook_url,
             slack_new_request_message,
             slack_approved_message,
@@ -1027,6 +1227,13 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
             db.prepare(
                 'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
             ).run(approvals.toString(), 'required_approvals');
+        }
+        
+        // Update base URL
+        if (base_url !== undefined) {
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(base_url, 'base_url');
         }
         
         // Update Slack settings

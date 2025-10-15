@@ -70,6 +70,7 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
+                                <th>Order Name</th>
                                 <th>Date</th>
                                 <th>Vendor</th>
                                 <th>Total</th>
@@ -180,6 +181,13 @@
                 const response = await fetch('/api/purchase-requests');
                 allRequests = await response.json();
                 filterRequests();
+                
+                // Check if there's an ID in the URL to open directly
+                const urlParams = new URLSearchParams(window.location.search);
+                const requestId = urlParams.get('id');
+                if (requestId) {
+                    viewRequest(parseInt(requestId));
+                }
             } catch (error) {
                 console.error('Failed to load requests:', error);
                 showError('Failed to load purchase requests');
@@ -215,7 +223,7 @@
             tbody.innerHTML = '';
             
             if (filteredRequests.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: #999;">No requests to display</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #999;">No requests to display</td></tr>';
                 return;
             }
             
@@ -223,9 +231,11 @@
                 const row = document.createElement('tr');
                 const date = new Date(request.created_at).toLocaleDateString();
                 const progress = calculateProgress(request);
+                const orderName = request.order_name || '<em style="color: #999;">No name</em>';
                 
                 row.innerHTML = `
                     <td>#${request.id}</td>
+                    <td>${orderName}</td>
                     <td>${date}</td>
                     <td>${request.vendor_name}</td>
                     <td>$${request.total.toFixed(2)}</td>
@@ -261,6 +271,11 @@
 
         // Render request details in modal
         function renderRequestDetails() {
+            // Update modal header with ID and name
+            const modalHeader = document.querySelector('#detailsModal .modal-header h2');
+            const orderNameText = currentRequest.order_name ? `: ${currentRequest.order_name}` : '';
+            modalHeader.textContent = `Purchase Request #${currentRequest.id}${orderNameText}`;
+            
             const content = document.getElementById('modalContent');
             const date = new Date(currentRequest.created_at).toLocaleDateString();
             const canReceive = (currentUser.role === 'admin' || currentUser.role === 'purchaser') && 

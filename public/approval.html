@@ -58,6 +58,7 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
+                                <th>Order Name</th>
                                 <th>Date</th>
                                 <th>Requester</th>
                                 <th>Vendor</th>
@@ -173,6 +174,13 @@
                 const response = await fetch('/api/purchase-requests');
                 requests = await response.json();
                 renderRequests();
+                
+                // Check if there's an ID in the URL to open directly
+                const urlParams = new URLSearchParams(window.location.search);
+                const requestId = urlParams.get('id');
+                if (requestId) {
+                    viewRequest(parseInt(requestId));
+                }
             } catch (error) {
                 console.error('Failed to load requests:', error);
                 showError('Failed to load purchase requests');
@@ -184,22 +192,24 @@
             const tbody = document.getElementById('requestsTableBody');
             tbody.innerHTML = '';
             
-            // Filter for pending, approved, and ordered requests
+            // Filter for pending and approved requests only (exclude ordered and rejected)
             const displayRequests = requests.filter(r => 
-                ['pending', 'approved', 'rejected', 'ordered'].includes(r.status)
+                ['pending', 'approved'].includes(r.status)
             );
             
             if (displayRequests.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: #999;">No requests to display</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #999;">No requests to display</td></tr>';
                 return;
             }
             
             displayRequests.forEach(request => {
                 const row = document.createElement('tr');
                 const date = new Date(request.created_at).toLocaleDateString();
+                const orderName = request.order_name || '<em style="color: #999;">No name</em>';
                 
                 row.innerHTML = `
                     <td>#${request.id}</td>
+                    <td>${orderName}</td>
                     <td>${date}</td>
                     <td>${request.requester_name}</td>
                     <td>${request.vendor_name}</td>
@@ -232,6 +242,11 @@
 
         // Render request details in modal
         function renderRequestDetails() {
+            // Update modal header with ID and name
+            const modalHeader = document.querySelector('#detailsModal .modal-header h2');
+            const orderNameText = currentRequest.order_name ? `: ${currentRequest.order_name}` : '';
+            modalHeader.textContent = `Purchase Request #${currentRequest.id}${orderNameText}`;
+            
             const content = document.getElementById('modalContent');
             const date = new Date(currentRequest.created_at).toLocaleDateString();
             const approvedDate = currentRequest.approved_at ? new Date(currentRequest.approved_at).toLocaleDateString() : 'N/A';

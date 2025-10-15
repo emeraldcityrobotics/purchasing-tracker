@@ -64,6 +64,11 @@
                         </div>
                     </div>
 
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="orderName">Order Name / Description</label>
+                        <input type="text" id="orderName" placeholder="Brief description of this order (e.g., 'Cameras for computer vision')">
+                    </div>
+
                     <div class="items-container">
                         <h3>Items</h3>
                         <div class="item-row header">
@@ -518,6 +523,7 @@
             const requesterName = requesterNameField.value.trim();
             const departmentId = departmentField.value;
             const vendorId = vendorField.value;
+            const orderName = document.getElementById('orderName').value.trim();
             const taxRate = parseFloat(document.getElementById('taxRate').value);
             const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
             const notes = document.getElementById('notes').value;
@@ -557,6 +563,7 @@
                         requester_name: requesterName,
                         department_id: departmentId,
                         vendor_id: vendorId,
+                        order_name: orderName,
                         items: items,
                         tax_rate: taxRate,
                         shipping_cost: shippingCost,
