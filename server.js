@@ -191,6 +191,30 @@ function initializeDatabase() {
         // Column already exists, ignore
     }
 
+    // Add tracking_number column if it doesn't exist (migration)
+    try {
+        db.exec(`ALTER TABLE purchase_requests ADD COLUMN tracking_number TEXT`);
+        console.log('Added tracking_number column to purchase_requests table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
+    // Add estimated_delivery_date column if it doesn't exist (migration)
+    try {
+        db.exec(`ALTER TABLE purchase_requests ADD COLUMN estimated_delivery_date TEXT`);
+        console.log('Added estimated_delivery_date column to purchase_requests table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
+    // Add actual_amount_spent column if it doesn't exist (migration)
+    try {
+        db.exec(`ALTER TABLE purchase_requests ADD COLUMN actual_amount_spent REAL`);
+        console.log('Added actual_amount_spent column to purchase_requests table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
     // Create approvals tracking table
     try {
         db.exec(`
@@ -232,8 +256,14 @@ function initializeDatabase() {
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_webhook_url', '');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
-        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for {{vendor}} - Estimated: ${{total}}, Actual: ${{actual_amount_spent}}. Tracking: {{tracking_number}}');
         db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
+        
+        // Google Sheets settings
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('google_sheets_enabled', 'false');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('google_apps_script_webhook', '');
+        db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('google_sheets_auto_export', 'true');
+        
         console.log('Default settings initialized');
     } else {
         // Add base_url if it doesn't exist (for existing databases)
@@ -249,16 +279,25 @@ function initializeDatabase() {
             db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_webhook_url', '');
             db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
             db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
-            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for {{vendor}} - Estimated: ${{total}}, Actual: ${{actual_amount_spent}}. Tracking: {{tracking_number}}');
             db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
             console.log('Slack notification settings added');
         } else {
             // Add ordered message if it doesn't exist (for databases that have slack settings but not ordered message)
             const slackOrderedExists = db.prepare('SELECT COUNT(*) as count FROM settings WHERE key = ?').get('slack_ordered_message');
             if (slackOrderedExists.count === 0) {
-                db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+                db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('slack_ordered_message', 'Purchase order placed: Request #{{id}} for {{vendor}} - Estimated: ${{total}}, Actual: ${{actual_amount_spent}}. Tracking: {{tracking_number}}');
                 console.log('Slack ordered message setting added');
             }
+        }
+        
+        // Add Google Sheets settings if they don't exist (for existing databases)
+        const googleSheetsEnabledExists = db.prepare('SELECT COUNT(*) as count FROM settings WHERE key = ?').get('google_sheets_enabled');
+        if (googleSheetsEnabledExists.count === 0) {
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('google_sheets_enabled', 'false');
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('google_apps_script_webhook', '');
+            db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('google_sheets_auto_export', 'true');
+            console.log('Google Sheets settings added');
         }
     }
 
@@ -306,6 +345,93 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+// Google Sheets integration via Apps Script webhook
+async function exportToGoogleSheets(requestData) {
+    try {
+        const isEnabled = getSetting('google_sheets_enabled', 'false') === 'true';
+        if (!isEnabled) {
+            console.log('[Google Sheets] Export disabled, skipping');
+            return { success: false, message: 'Google Sheets export is disabled' };
+        }
+
+        const webhookUrl = getSetting('google_apps_script_webhook', '');
+        
+        if (!webhookUrl) {
+            console.log('[Google Sheets] Missing webhook URL, skipping export');
+            return { success: false, message: 'Google Apps Script webhook URL not configured' };
+        }
+
+        // Prepare data payload
+        const exportData = {
+            orderId: requestData.id,
+            exportDate: new Date().toISOString().split('T')[0],
+            orderName: requestData.order_name || 'Unnamed Order',
+            requester: requestData.requester_name || 'Unknown',
+            vendor: requestData.vendor_name || 'Unknown Vendor',
+            estimatedCost: requestData.total ? parseFloat(requestData.total).toFixed(2) : '0.00',
+            actualCost: requestData.actual_amount_spent ? parseFloat(requestData.actual_amount_spent).toFixed(2) : 'N/A',
+            trackingNumber: requestData.tracking_number || 'N/A',
+            estimatedDelivery: requestData.estimated_delivery_date || 'N/A',
+            requestedArrival: requestData.requested_arrival_date || 'N/A',
+            status: requestData.status || 'unknown',
+            timestamp: new Date().toISOString()
+        };
+
+        console.log(`[Google Sheets] Sending data to Apps Script webhook for order ${requestData.id}`);
+
+        // Send POST request to Google Apps Script webhook
+        const https = require('https');
+        const url = require('url');
+        
+        return new Promise((resolve, reject) => {
+            const parsedUrl = url.parse(webhookUrl);
+            const postData = JSON.stringify(exportData);
+            
+            const options = {
+                hostname: parsedUrl.hostname,
+                port: 443,
+                path: parsedUrl.path,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(postData)
+                }
+            };
+
+            const request = https.request(options, (response) => {
+                let data = '';
+                
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+                
+                response.on('end', () => {
+                    // Google Apps Script often returns 302 redirect, which is actually success
+                    if (response.statusCode === 200 || response.statusCode === 302) {
+                        console.log(`[Google Sheets] Successfully exported order ${requestData.id} to Google Sheets (status: ${response.statusCode})`);
+                        resolve({ success: true, message: 'Order exported to Google Sheets successfully' });
+                    } else {
+                        console.error('[Google Sheets] Export failed with status:', response.statusCode, 'Response:', data);
+                        resolve({ success: false, message: `Export failed with status: ${response.statusCode}` });
+                    }
+                });
+            });
+
+            request.on('error', (error) => {
+                console.error('[Google Sheets] Export request failed:', error);
+                resolve({ success: false, message: `Export failed: ${error.message}` });
+            });
+
+            request.write(postData);
+            request.end();
+        });
+
+    } catch (error) {
+        console.error('[Google Sheets] Export failed:', error);
+        return { success: false, message: `Export failed: ${error.message}` };
+    }
+}
+
 // Slack notification function
 async function sendSlackNotification(messageType, requestData) {
     try {
@@ -329,7 +455,7 @@ async function sendSlackNotification(messageType, requestData) {
                 messageTemplate = getSetting('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
                 break;
             case 'ordered':
-                messageTemplate = getSetting('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+                messageTemplate = getSetting('slack_ordered_message', 'Purchase order placed: Request #{{id}} for {{vendor}} - Estimated: ${{total}}, Actual: ${{actual_amount_spent}}. Tracking: {{tracking_number}}');
                 break;
             case 'arrived':
                 messageTemplate = getSetting('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
@@ -349,6 +475,9 @@ async function sendSlackNotification(messageType, requestData) {
             .replace(/\{\{requester\}\}/g, requestData.requester_name || '')
             .replace(/\{\{vendor\}\}/g, requestData.vendor_name || '')
             .replace(/\{\{total\}\}/g, requestData.total ? requestData.total.toFixed(2) : '0.00')
+            .replace(/\{\{actual_amount_spent\}\}/g, requestData.actual_amount_spent ? requestData.actual_amount_spent.toFixed(2) : 'Not specified')
+            .replace(/\{\{tracking_number\}\}/g, requestData.tracking_number || 'Not specified')
+            .replace(/\{\{estimated_delivery_date\}\}/g, requestData.estimated_delivery_date ? formatDate(requestData.estimated_delivery_date) : 'Not specified')
             .replace(/\{\{requested_arrival_date\}\}/g, requestData.requested_arrival_date ? formatDate(requestData.requested_arrival_date) : 'Not specified')
             .replace(/\{\{order_name\}\}/g, requestData.order_name || 'Unnamed Order')
             .replace(/\{\{link\}\}/g, requestLink);
@@ -968,9 +1097,24 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                 WHERE id = ?
             `).run(req.session.userId, requestId);
         } else if (status === 'ordered') {
-            // Mark as ordered
-            db.prepare('UPDATE purchase_requests SET status = ? WHERE id = ?')
-                .run(status, requestId);
+            // Mark as ordered with optional tracking number, estimated delivery date, and actual amount spent
+            const { tracking_number, estimated_delivery_date, actual_amount_spent } = req.body;
+            
+            // Validate actual_amount_spent is provided and is a positive number
+            if (!actual_amount_spent || actual_amount_spent <= 0) {
+                return res.status(400).json({ error: 'Actual amount spent is required and must be greater than 0' });
+            }
+            
+            const updateQuery = `
+                UPDATE purchase_requests 
+                SET status = ?, 
+                    tracking_number = ?, 
+                    estimated_delivery_date = ?,
+                    actual_amount_spent = ?
+                WHERE id = ?
+            `;
+            
+            db.prepare(updateQuery).run(status, tracking_number || null, estimated_delivery_date || null, actual_amount_spent, requestId);
             
             // Get vendor name for notification
             const requestDetails = db.prepare(`
@@ -982,6 +1126,20 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
             
             // Send Slack notification for ordered request
             sendSlackNotification('ordered', requestDetails);
+            
+            // Export to Google Sheets if auto-export is enabled
+            const autoExport = getSetting('google_sheets_auto_export', 'true') === 'true';
+            if (autoExport) {
+                exportToGoogleSheets(requestDetails).then(result => {
+                    if (result.success) {
+                        console.log(`[Google Sheets] Auto-export successful for order ${requestId}`);
+                    } else {
+                        console.log(`[Google Sheets] Auto-export failed for order ${requestId}: ${result.message}`);
+                    }
+                }).catch(error => {
+                    console.error(`[Google Sheets] Auto-export error for order ${requestId}:`, error);
+                });
+            }
         } else {
             db.prepare('UPDATE purchase_requests SET status = ? WHERE id = ?')
                 .run(status, requestId);
@@ -991,6 +1149,47 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
     } catch (error) {
         console.error(error);
         res.status(400).json({ error: 'Failed to update status' });
+    }
+});
+
+// Update tracking information for an order
+app.put('/api/purchase-requests/:id/tracking', requireAuth, requireRole('admin', 'approver', 'purchaser'), (req, res) => {
+    const { tracking_number, estimated_delivery_date, actual_amount_spent } = req.body;
+    const requestId = req.params.id;
+    
+    try {
+        // Get the purchase request to ensure it exists
+        const request = db.prepare('SELECT * FROM purchase_requests WHERE id = ?').get(requestId);
+        
+        if (!request) {
+            return res.status(404).json({ error: 'Purchase request not found' });
+        }
+        
+        // Validate actual_amount_spent if provided
+        if (actual_amount_spent !== undefined && actual_amount_spent !== null && actual_amount_spent <= 0) {
+            return res.status(400).json({ error: 'Actual amount spent must be greater than 0' });
+        }
+        
+        // Update tracking information
+        const updateQuery = `
+            UPDATE purchase_requests 
+            SET tracking_number = ?, 
+                estimated_delivery_date = ?,
+                actual_amount_spent = ?
+            WHERE id = ?
+        `;
+        
+        db.prepare(updateQuery).run(
+            tracking_number || null, 
+            estimated_delivery_date || null,
+            actual_amount_spent || null,
+            requestId
+        );
+        
+        res.json({ success: true, message: 'Tracking information updated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ error: 'Failed to update tracking information' });
     }
 });
 
@@ -1144,6 +1343,65 @@ app.delete('/api/users/:id', requireAuth, requireRole('admin'), (req, res) => {
     }
 });
 
+// Google Sheets API endpoints
+app.post('/api/google-sheets/export/:id', requireAuth, requireRole('admin', 'approver', 'purchaser'), async (req, res) => {
+    try {
+        const requestId = req.params.id;
+        
+        // Get the purchase request details
+        const requestDetails = db.prepare(`
+            SELECT pr.*, v.name as vendor_name
+            FROM purchase_requests pr
+            JOIN vendors v ON pr.vendor_id = v.id
+            WHERE pr.id = ?
+        `).get(requestId);
+        
+        if (!requestDetails) {
+            return res.status(404).json({ error: 'Purchase request not found' });
+        }
+        
+        const result = await exportToGoogleSheets(requestDetails);
+        
+        if (result.success) {
+            res.json({ success: true, message: result.message });
+        } else {
+            res.status(400).json({ error: result.message });
+        }
+    } catch (error) {
+        console.error('Manual export error:', error);
+        res.status(500).json({ error: 'Export failed' });
+    }
+});
+
+app.post('/api/google-sheets/test', requireAuth, requireRole('admin'), async (req, res) => {
+    try {
+        // Create test data for verification
+        const testData = {
+            id: 'TEST-' + Date.now(),
+            order_name: 'Test Export from Purchasing Tracker',
+            requester_name: 'Test User',
+            vendor_name: 'Test Vendor',
+            total: 99.99,
+            actual_amount_spent: 105.50,
+            tracking_number: 'TEST123456789',
+            estimated_delivery_date: '2025-10-25',
+            requested_arrival_date: '2025-10-20',
+            status: 'ordered'
+        };
+        
+        const result = await exportToGoogleSheets(testData);
+        
+        if (result.success) {
+            res.json({ success: true, message: 'Test export successful! Check your Google Sheet for the test row.' });
+        } else {
+            res.status(400).json({ error: result.message });
+        }
+    } catch (error) {
+        console.error('Test export error:', error);
+        res.status(500).json({ error: 'Test export failed' });
+    }
+});
+
 // Serve HTML pages
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1167,14 +1425,22 @@ app.get('/api/settings', requireAuth, requireRole('admin', 'approver'), (req, re
         const slackWebhookUrl = getSetting('slack_webhook_url', '');
         const slackNewRequestMessage = getSetting('slack_new_request_message', 'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})');
         const slackApprovedMessage = getSetting('slack_approved_message', 'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered');
-        const slackOrderedMessage = getSetting('slack_ordered_message', 'Purchase order placed: Request #{{id}} for ${{total}} has been ordered from {{vendor}}');
+        const slackMultiApprovalMessage = getSetting('slack_multi_approval_message', 'Purchase request requires multiple approvals: Request #{{id}} for ${{total}} from {{vendor}} requires {{required_approvals}} approvals');
+        const slackOrderedMessage = getSetting('slack_ordered_message', 'Purchase order placed: Request #{{id}} for {{vendor}} - Estimated: ${{total}}, Actual: ${{actual_amount_spent}}. Tracking: {{tracking_number}}');
         const slackArrivedMessage = getSetting('slack_arrived_message', 'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete');
+        
+        // Google Sheets settings
+        const googleSheetsEnabled = getSetting('google_sheets_enabled', 'false') === 'true';
+        const googleAppsScriptWebhook = getSetting('google_apps_script_webhook', '');
+        const googleSheetsAutoExport = getSetting('google_sheets_auto_export', 'true') === 'true';
         
         console.log('[Settings API] Returning settings:', {
             multi_approval_threshold: threshold,
             required_approvals: requiredApprovals,
             base_url: baseUrl,
-            slack_webhook_url: slackWebhookUrl ? 'configured' : 'empty'
+            slack_webhook_url: slackWebhookUrl ? 'configured' : 'empty',
+            google_sheets_enabled: googleSheetsEnabled,
+            google_apps_script_webhook: googleAppsScriptWebhook ? 'configured' : 'empty'
         });
         
         res.json({
@@ -1184,8 +1450,12 @@ app.get('/api/settings', requireAuth, requireRole('admin', 'approver'), (req, re
             slack_webhook_url: slackWebhookUrl,
             slack_new_request_message: slackNewRequestMessage,
             slack_approved_message: slackApprovedMessage,
+            slack_multi_approval_message: slackMultiApprovalMessage,
             slack_ordered_message: slackOrderedMessage,
-            slack_arrived_message: slackArrivedMessage
+            slack_arrived_message: slackArrivedMessage,
+            google_sheets_enabled: googleSheetsEnabled,
+            google_apps_script_webhook: googleAppsScriptWebhook,
+            google_sheets_auto_export: googleSheetsAutoExport
         });
     } catch (error) {
         console.error('[Settings API] Error:', error);
@@ -1202,8 +1472,12 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
             slack_webhook_url,
             slack_new_request_message,
             slack_approved_message,
+            slack_multi_approval_message,
             slack_ordered_message,
-            slack_arrived_message
+            slack_arrived_message,
+            google_sheets_enabled,
+            google_apps_script_webhook,
+            google_sheets_auto_export
         } = req.body;
         
         // Validate inputs
@@ -1255,6 +1529,12 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
             ).run(slack_approved_message, 'slack_approved_message');
         }
         
+        if (slack_multi_approval_message !== undefined) {
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(slack_multi_approval_message, 'slack_multi_approval_message');
+        }
+        
         if (slack_ordered_message !== undefined) {
             db.prepare(
                 'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
@@ -1267,6 +1547,35 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
             ).run(slack_arrived_message, 'slack_arrived_message');
         }
         
+        // Update Google Sheets settings
+        if (google_sheets_enabled !== undefined) {
+            const enabled = google_sheets_enabled ? 'true' : 'false';
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(enabled, 'google_sheets_enabled');
+        }
+        
+        if (google_apps_script_webhook !== undefined) {
+            // Validate webhook URL format if provided
+            if (google_apps_script_webhook && google_apps_script_webhook.trim() !== '') {
+                try {
+                    new URL(google_apps_script_webhook);
+                } catch (error) {
+                    return res.status(400).json({ error: 'Invalid webhook URL format' });
+                }
+            }
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(google_apps_script_webhook, 'google_apps_script_webhook');
+        }
+        
+        if (google_sheets_auto_export !== undefined) {
+            const autoExport = google_sheets_auto_export ? 'true' : 'false';
+            db.prepare(
+                'UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            ).run(autoExport, 'google_sheets_auto_export');
+        }
+        
         // Return updated values
         const threshold = getMultiApprovalThreshold();
         const requiredApprovalCount = getRequiredApprovals();
@@ -1275,11 +1584,16 @@ app.put('/api/settings', requireAuth, requireRole('admin'), (req, res) => {
             success: true,
             multi_approval_threshold: threshold,
             required_approvals: requiredApprovalCount,
+            base_url: getSetting('base_url', ''),
             slack_webhook_url: getSetting('slack_webhook_url', ''),
             slack_new_request_message: getSetting('slack_new_request_message', ''),
             slack_approved_message: getSetting('slack_approved_message', ''),
+            slack_multi_approval_message: getSetting('slack_multi_approval_message', ''),
             slack_ordered_message: getSetting('slack_ordered_message', ''),
-            slack_arrived_message: getSetting('slack_arrived_message', '')
+            slack_arrived_message: getSetting('slack_arrived_message', ''),
+            google_sheets_enabled: getSetting('google_sheets_enabled', 'false') === 'true',
+            google_apps_script_webhook: getSetting('google_apps_script_webhook', ''),
+            google_sheets_auto_export: getSetting('google_sheets_auto_export', 'true') === 'true'
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update settings' });

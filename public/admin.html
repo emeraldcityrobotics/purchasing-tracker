@@ -237,13 +237,52 @@
                         <div class="form-group">
                             <label>Ordered Purchase Message Template</label>
                             <textarea id="slackOrderedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when a purchase order is marked as ordered from vendor. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{link}}</small>
+                            <small style="color: #666;">Sent when a purchase order is marked as ordered from vendor. Variables: {{id}}, {{vendor}}, {{total}}, {{actual_amount_spent}}, {{requested_arrival_date}}, {{tracking_number}}, {{estimated_delivery_date}}, {{order_name}}, {{link}}</small>
                         </div>
                         
                         <div class="form-group">
                             <label>Arrived Order Message Template</label>
                             <textarea id="slackArrivedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when an order arrives and needs to be received. Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{link}}</small>
+                            <small style="color: #666;">Sent when an order arrives and needs to be received. Variables: {{id}}, {{vendor}}, {{total}}, {{actual_amount_spent}}, {{tracking_number}}, {{estimated_delivery_date}}, {{requested_arrival_date}}, {{order_name}}, {{link}}</small>
+                        </div>
+
+                        <h3 style="margin-top: 40px; margin-bottom: 20px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">📊 Google Sheets Integration</h3>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="googleSheetsEnabled" style="margin-right: 8px;">
+                                Enable Google Sheets Export
+                            </label>
+                            <small style="color: #666; display: block; margin-top: 5px;">Automatically export purchase orders to Google Sheets when marked as ordered</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Google Apps Script Webhook URL</label>
+                            <input type="url" id="googleAppsScriptWebhook" placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec">
+                            <small style="color: #666;">Copy the webhook URL from your Google Apps Script deployment</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="googleSheetsAutoExport" style="margin-right: 8px;">
+                                Auto-export when orders are placed
+                            </label>
+                            <small style="color: #666; display: block; margin-top: 5px;">Automatically export to Google Sheets when an order is marked as "ordered"</small>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px; border-left: 4px solid #007bff;">
+                            <p style="margin: 0 0 10px 0; font-weight: 600;">Setup Instructions:</p>
+                            <ol style="margin: 0; padding-left: 20px; font-size: 13px;">
+                                <li>Create a Google Sheet</li>
+                                <li>Go to <a href="https://script.google.com" target="_blank">Google Apps Script</a></li>
+                                <li>Create a new project and paste the provided code</li>
+                                <li>Deploy as a web app with execute permissions for "Anyone"</li>
+                                <li>Copy the webhook URL and paste it above</li>
+                            </ol>
+                            <div style="margin-top: 10px;">
+                                <button type="button" class="btn btn-secondary" onclick="testGoogleSheetsExport()">Test Export</button>
+                                <button type="button" class="btn btn-info" onclick="showAppsScriptCode()" style="margin-left: 10px;">📋 Get Apps Script Code</button>
+                            </div>
                         </div>
                         
                         <button type="submit" class="btn btn-primary">Save Settings</button>
@@ -699,6 +738,12 @@
                 document.getElementById('slackMultiApprovalMessage').value = data.slack_multi_approval_message || '';
                 document.getElementById('slackOrderedMessage').value = data.slack_ordered_message || '';
                 document.getElementById('slackArrivedMessage').value = data.slack_arrived_message || '';
+                
+                // Google Sheets settings
+                document.getElementById('googleSheetsEnabled').checked = data.google_sheets_enabled || false;
+                document.getElementById('googleAppsScriptWebhook').value = data.google_apps_script_webhook || '';
+                document.getElementById('googleSheetsAutoExport').checked = data.google_sheets_auto_export !== false; // Default to true
+                
                 console.log('[Admin] Settings loaded successfully');
             } catch (error) {
                 console.error('[Admin] Failed to load settings:', error);
@@ -718,6 +763,11 @@
             const slackOrderedMessage = document.getElementById('slackOrderedMessage').value;
             const slackArrivedMessage = document.getElementById('slackArrivedMessage').value;
             
+            // Google Sheets settings
+            const googleSheetsEnabled = document.getElementById('googleSheetsEnabled').checked;
+            const googleAppsScriptWebhook = document.getElementById('googleAppsScriptWebhook').value;
+            const googleSheetsAutoExport = document.getElementById('googleSheetsAutoExport').checked;
+            
             try {
                 const response = await fetch('/api/settings', {
                     method: 'PUT',
@@ -730,7 +780,10 @@
                         slack_approved_message: slackApprovedMessage,
                         slack_multi_approval_message: slackMultiApprovalMessage,
                         slack_ordered_message: slackOrderedMessage,
-                        slack_arrived_message: slackArrivedMessage
+                        slack_arrived_message: slackArrivedMessage,
+                        google_sheets_enabled: googleSheetsEnabled,
+                        google_apps_script_webhook: googleAppsScriptWebhook,
+                        google_sheets_auto_export: googleSheetsAutoExport
                     })
                 });
                 
@@ -773,6 +826,161 @@
             } catch (error) {
                 showError('Failed to send test message');
             }
+        }
+
+        // Test Google Sheets export
+        async function testGoogleSheetsExport() {
+            const googleSheetsEnabled = document.getElementById('googleSheetsEnabled').checked;
+            const googleAppsScriptWebhook = document.getElementById('googleAppsScriptWebhook').value;
+            
+            if (!googleSheetsEnabled) {
+                showError('Please enable Google Sheets integration first');
+                return;
+            }
+            
+            if (!googleAppsScriptWebhook || googleAppsScriptWebhook.trim() === '') {
+                showError('Please enter the Google Apps Script webhook URL first');
+                return;
+            }
+            
+            try {
+                showSuccess('Sending test export...');
+                
+                const response = await fetch('/api/google-sheets/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Test export successful! Check your Google Sheet for a test row.');
+                } else {
+                    showError(data.error || 'Failed to export test data');
+                }
+            } catch (error) {
+                showError('Failed to test Google Sheets export');
+            }
+        }
+
+        // Show Google Apps Script code
+        function showAppsScriptCode() {
+            const appsScriptCode = `function doPost(e) {
+  try {
+    // Parse the JSON data from the request
+    const data = JSON.parse(e.postData.contents);
+    
+    // Open your Google Sheet by ID (replace with your actual Sheet ID)
+    const SHEET_ID = 'YOUR_GOOGLE_SHEET_ID_HERE'; // Replace this!
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getActiveSheet();
+    
+    // Check if we need to add headers
+    if (sheet.getLastRow() === 0) {
+      const headers = [
+        'Order ID',
+        'Export Date', 
+        'Order Name',
+        'Requester',
+        'Vendor',
+        'Estimated Cost',
+        'Actual Cost',
+        'Tracking Number',
+        'Estimated Delivery',
+        'Requested Arrival',
+        'Status',
+        'Timestamp'
+      ];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      
+      // Format header row
+      const headerRange = sheet.getRange(1, 1, 1, headers.length);
+      headerRange.setFontWeight('bold');
+      headerRange.setBackground('#4285f4');
+      headerRange.setFontColor('white');
+    }
+    
+    // Prepare the row data
+    const rowData = [
+      data.orderId,
+      data.exportDate,
+      data.orderName,
+      data.requester,
+      data.vendor,
+      data.estimatedCost,
+      data.actualCost,
+      data.trackingNumber,
+      data.estimatedDelivery,
+      data.requestedArrival,
+      data.status,
+      data.timestamp
+    ];
+    
+    // Add the new row
+    sheet.appendRow(rowData);
+    
+    // Format the new row if it contains actual cost variance
+    const lastRow = sheet.getLastRow();
+    const estimatedCost = parseFloat(data.estimatedCost);
+    const actualCost = parseFloat(data.actualCost);
+    
+    if (!isNaN(estimatedCost) && !isNaN(actualCost)) {
+      const variance = actualCost - estimatedCost;
+      const variancePercent = (variance / estimatedCost) * 100;
+      
+      // Highlight rows with significant cost variance
+      if (Math.abs(variancePercent) > 10) {
+        const rowRange = sheet.getRange(lastRow, 1, 1, 12);
+        rowRange.setBackground(variancePercent > 0 ? '#ffebee' : '#e8f5e8');
+      }
+    }
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({success: true}))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({success: false, error: error.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+            // Create a modal to show the code
+            const modal = document.createElement('div');
+            modal.className = 'modal show';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 800px; max-height: 80vh;">
+                    <div class="modal-header">
+                        <h2>Google Apps Script Code</h2>
+                        <button class="close-modal" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <p><strong>Instructions:</strong></p>
+                        <ol style="margin-left: 20px;">
+                            <li>Go to <a href="https://script.google.com" target="_blank">script.google.com</a></li>
+                            <li>Create a new project</li>
+                            <li>Replace the default code with the code below</li>
+                            <li>Change <code>YOUR_GOOGLE_SHEET_ID_HERE</code> to your actual Sheet ID</li>
+                            <li>Deploy → New deployment → Type: Web app</li>
+                            <li>Execute as: Me, Access: Anyone</li>
+                            <li>Copy the webhook URL and paste it in the settings above</li>
+                        </ol>
+                    </div>
+                    <div style="position: relative;">
+                        <button onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent); showSuccess('Code copied to clipboard!')" 
+                                style="position: absolute; top: 10px; right: 10px; z-index: 1000; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                            📋 Copy Code
+                        </button>
+                        <pre style="background: #f5f5f5; padding: 20px; border-radius: 5px; overflow-x: auto; max-height: 400px; font-size: 12px; margin: 0;">${appsScriptCode}</pre>
+                    </div>
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
         }
 
         // Utility functions - Toast notifications

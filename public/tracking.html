@@ -73,8 +73,11 @@
                                 <th>Order Name</th>
                                 <th>Date</th>
                                 <th>Vendor</th>
-                                <th>Total</th>
+                                <th>Estimated</th>
+                                <th>Actual Spent</th>
                                 <th>Status</th>
+                                <th>Tracking</th>
+                                <th>Est. Delivery</th>
                                 <th>Progress</th>
                                 <th>Actions</th>
                             </tr>
@@ -233,13 +236,29 @@
                 const progress = calculateProgress(request);
                 const orderName = request.order_name || '<em style="color: #999;">No name</em>';
                 
+                // Calculate if there's a cost variance
+                const hasActualAmount = request.actual_amount_spent !== null && request.actual_amount_spent !== undefined;
+                const costVariance = hasActualAmount ? (request.actual_amount_spent - request.total) : 0;
+                const varianceClass = costVariance > 0.01 ? 'cost-over' : costVariance < -0.01 ? 'cost-under' : '';
+                
                 row.innerHTML = `
                     <td>#${request.id}</td>
                     <td>${orderName}</td>
                     <td>${date}</td>
                     <td>${request.vendor_name}</td>
                     <td>$${request.total.toFixed(2)}</td>
+                    <td class="${varianceClass}">
+                        ${hasActualAmount ? 
+                            `$${request.actual_amount_spent.toFixed(2)}${Math.abs(costVariance) > 0.01 ? 
+                                `<br><small style="color: ${costVariance > 0 ? '#dc3545' : '#28a745'};">(${costVariance > 0 ? '+' : ''}$${costVariance.toFixed(2)})</small>` : 
+                                ''
+                            }` : 
+                            '<span style="color: #999;">-</span>'
+                        }
+                    </td>
                     <td><span class="status-badge status-${request.status}">${request.status.replace('_', ' ')}</span></td>
+                    <td>${request.tracking_number ? `<span style="color: #28a745; font-weight: 500;">${request.tracking_number}</span>` : '<span style="color: #999;">-</span>'}</td>
+                    <td>${request.estimated_delivery_date ? `<span style="color: #007bff;">${formatDate(request.estimated_delivery_date)}</span>` : '<span style="color: #999;">-</span>'}</td>
                     <td>
                         <div style="width: 100px; background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
                             <div style="width: ${progress}%; background: #667eea; height: 100%; transition: width 0.3s;"></div>
@@ -399,6 +418,20 @@
                     </div>
                 ` : ''}
 
+                ${currentRequest.tracking_number ? `
+                    <div class="callout callout-success">
+                        <strong>📦 Tracking Number</strong>
+                        <span class="callout-text">${currentRequest.tracking_number}</span>
+                    </div>
+                ` : ''}
+
+                ${currentRequest.estimated_delivery_date ? `
+                    <div class="callout callout-info">
+                        <strong>🚚 Estimated Delivery Date</strong>
+                        <span class="callout-date">${formatDate(currentRequest.estimated_delivery_date)}</span>
+                    </div>
+                ` : ''}
+
                 ${itemsHtml}
 
                 <div class="summary-section">
@@ -410,43 +443,196 @@
                         <span>Tax:</span>
                         <span>$${currentRequest.tax_amount.toFixed(2)}</span>
                     </div>
-                    <div class="summary-row total">
-                        <span>Total:</span>
+                    <div class="summary-row ${currentRequest.actual_amount_spent ? '' : 'total'}">
+                        <span>Estimated Total:</span>
                         <span>$${currentRequest.total.toFixed(2)}</span>
                     </div>
+                    ${currentRequest.actual_amount_spent ? `
+                        <div class="summary-row total">
+                            <span>Actual Amount Spent:</span>
+                            <span>$${currentRequest.actual_amount_spent.toFixed(2)}</span>
+                        </div>
+                        ${Math.abs(currentRequest.actual_amount_spent - currentRequest.total) > 0.01 ? `
+                            <div class="summary-row" style="color: ${currentRequest.actual_amount_spent > currentRequest.total ? '#dc3545' : '#28a745'};">
+                                <span>Difference:</span>
+                                <span>${currentRequest.actual_amount_spent > currentRequest.total ? '+' : ''}$${(currentRequest.actual_amount_spent - currentRequest.total).toFixed(2)}</span>
+                            </div>
+                        ` : ''}
+                    ` : ''}
                 </div>
 
                 <div style="margin-top: 30px;">
+                    ${canReceive && ['ordered', 'partially_received', 'completed'].includes(currentRequest.status) ? `
+                        <button class="btn btn-primary" onclick="editTracking(${currentRequest.id})">Edit Tracking Info</button>
+                        <button class="btn btn-success" onclick="exportToGoogleSheets(${currentRequest.id})" style="margin-left: 10px;">📊 Export to Sheets</button>
+                    ` : ''}
                     <button class="btn btn-secondary" onclick="closeModal()">Close</button>
                 </div>
             `;
         }
 
         // Mark as ordered
-        async function markAsOrdered(id) {
-            if (!confirm('Confirm that you have placed this order with the vendor?')) {
-                return;
-            }
+        function markAsOrdered(id) {
+            showOrderForm(id);
+        }
+
+        // Show order form for tracking details
+        function showOrderForm(id) {
+            const modalContent = document.getElementById('modalContent');
+            const estimatedTotal = currentRequest ? currentRequest.total : 0;
             
-            try {
-                const response = await fetch(`/api/purchase-requests/${id}/status`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'ordered' })
-                });
+            modalContent.innerHTML = `
+                <h3>Mark Order as Placed</h3>
+                <p>Please provide the order details and tracking information:</p>
                 
-                const data = await response.json();
+                <form id="orderForm" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label for="actualAmount">Actual Amount Spent ($) <span style="color: red;">*</span></label>
+                        <input type="number" id="actualAmount" step="0.01" min="0" value="${estimatedTotal}" required>
+                        <small style="color: #666;">
+                            Enter the actual total amount paid to the vendor (estimated: $${estimatedTotal.toFixed(2)})
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="trackingNumber">Tracking Number</label>
+                        <input type="text" id="trackingNumber" placeholder="Enter tracking number (optional)">
+                        <small style="color: #666;">If available from the vendor</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="estimatedDelivery">Estimated Delivery Date</label>
+                        <input type="date" id="estimatedDelivery">
+                        <small style="color: #666;">Expected delivery date from vendor</small>
+                    </div>
+                    
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                        <button type="submit" class="btn btn-success">Confirm Order Placed</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `;
+            
+            // Handle form submission
+            document.getElementById('orderForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
                 
-                if (data.success) {
-                    showSuccess('Order status updated to "Ordered"');
-                    closeModal();
-                    await loadRequests();
-                } else {
-                    showError(data.error || 'Failed to update status');
+                const actualAmount = parseFloat(document.getElementById('actualAmount').value);
+                const trackingNumber = document.getElementById('trackingNumber').value.trim();
+                const estimatedDelivery = document.getElementById('estimatedDelivery').value;
+                
+                // Validate actual amount
+                if (!actualAmount || actualAmount <= 0) {
+                    showError('Please enter a valid actual amount spent');
+                    return;
                 }
-            } catch (error) {
-                showError('Connection error');
-            }
+                
+                try {
+                    const response = await fetch(`/api/purchase-requests/${id}/status`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            status: 'ordered',
+                            tracking_number: trackingNumber || null,
+                            estimated_delivery_date: estimatedDelivery || null,
+                            actual_amount_spent: actualAmount
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showSuccess('Order status updated to "Ordered"');
+                        closeModal();
+                        await loadRequests();
+                    } else {
+                        showError(data.error || 'Failed to update status');
+                    }
+                } catch (error) {
+                    showError('Connection error');
+                }
+            });
+            
+            // Show the modal with proper centering
+            const modal = document.getElementById('detailsModal');
+            modal.classList.add('show');
+        }
+
+        // Edit tracking information
+        function editTracking(id) {
+            const request = allRequests.find(r => r.id === id);
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <h3>Edit Tracking Information</h3>
+                <p>Update the tracking details for Order #${id}:</p>
+                
+                <form id="trackingForm" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label for="editActualAmount">Actual Amount Spent ($)</label>
+                        <input type="number" id="editActualAmount" step="0.01" min="0" value="${request.actual_amount_spent || request.total}" placeholder="0.00">
+                        <small style="color: #666;">
+                            Total amount actually paid to vendor (estimated: $${request.total.toFixed(2)})
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editTrackingNumber">Tracking Number</label>
+                        <input type="text" id="editTrackingNumber" value="${request.tracking_number || ''}" placeholder="Enter tracking number">
+                        <small style="color: #666;">Package tracking number from the carrier</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editEstimatedDelivery">Estimated Delivery Date</label>
+                        <input type="date" id="editEstimatedDelivery" value="${request.estimated_delivery_date || ''}">
+                        <small style="color: #666;">Expected delivery date</small>
+                    </div>
+                    
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                        <button type="submit" class="btn btn-primary">Update Tracking Info</button>
+                        <button type="button" class="btn btn-secondary" onclick="viewRequest(${id})">Cancel</button>
+                    </div>
+                </form>
+            `;
+            
+            // Handle form submission
+            document.getElementById('trackingForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const actualAmount = parseFloat(document.getElementById('editActualAmount').value);
+                const trackingNumber = document.getElementById('editTrackingNumber').value.trim();
+                const estimatedDelivery = document.getElementById('editEstimatedDelivery').value;
+                
+                // Validate actual amount
+                if (!actualAmount || actualAmount <= 0) {
+                    showError('Please enter a valid actual amount spent');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/purchase-requests/${id}/tracking`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            tracking_number: trackingNumber || null,
+                            estimated_delivery_date: estimatedDelivery || null,
+                            actual_amount_spent: actualAmount
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showSuccess('Tracking information updated successfully');
+                        await loadRequests();
+                        viewRequest(id); // Refresh the view
+                    } else {
+                        showError(data.error || 'Failed to update tracking information');
+                    }
+                } catch (error) {
+                    showError('Connection error');
+                }
+            });
         }
 
         // Receive items
@@ -492,7 +678,9 @@
 
         // Close modal
         function closeModal() {
-            document.getElementById('detailsModal').classList.remove('show');
+            const modal = document.getElementById('detailsModal');
+            modal.classList.remove('show');
+            modal.style.display = 'none';
         }
 
         // Toast notification system
@@ -518,6 +706,29 @@
 
         function showError(message) {
             showToast(message, 'error');
+        }
+
+        // Export to Google Sheets
+        async function exportToGoogleSheets(id) {
+            try {
+                showSuccess('Exporting to Google Sheets...');
+                
+                const response = await fetch(`/api/google-sheets/export/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Order exported to Google Sheets successfully! 📊');
+                } else {
+                    showError(data.error || 'Failed to export to Google Sheets');
+                }
+            } catch (error) {
+                console.error('Export error:', error);
+                showError('Failed to export to Google Sheets');
+            }
         }
 
         function formatDate(dateString) {
