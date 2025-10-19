@@ -1053,12 +1053,8 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                     
                     requestDetails.required_approvals = requiredApprovals;
                     
-                    // Get department info for category-specific notification
-                    const departmentInfo = requestDetails.department_id ? 
-                        db.prepare('SELECT * FROM departments WHERE id = ?').get(requestDetails.department_id) : null;
-                    
-                    // Send category-specific approval notification
-                    sendCategoryApprovalNotification(requestDetails, departmentInfo);
+                    // Send approved notification
+                    sendSlackNotification('approved', requestDetails);
                     
                     return res.json({ success: true, message: `Request fully approved with ${newCount} approvals`, approved: true });
                 } else {
@@ -1083,12 +1079,8 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                     WHERE pr.id = ?
                 `).get(req.session.userId, requestId);
                 
-                // Get department info for category-specific notification
-                const departmentInfo = requestDetails.department_id ? 
-                    db.prepare('SELECT * FROM departments WHERE id = ?').get(requestDetails.department_id) : null;
-                
-                // Send category-specific approval notification
-                sendCategoryApprovalNotification(requestDetails, departmentInfo);
+                // Send approved notification
+                sendSlackNotification('approved', requestDetails);
             }
         } else if (status === 'rejected') {
             db.prepare(`
