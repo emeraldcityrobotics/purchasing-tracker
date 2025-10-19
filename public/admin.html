@@ -647,35 +647,44 @@
                         <td>${dept.approver_name || 'Any Approver'}</td>
                         <td>${new Date(dept.created_at).toLocaleDateString()}</td>
                         <td>
-                            <button class="btn btn-small btn-secondary edit-dept-btn" 
-                                    data-id="${dept.id}" 
-                                    data-name="${dept.name}" 
-                                    data-approver-id="${dept.approver_id || ''}" 
-                                    data-slack-message="${dept.slack_approval_message || ''}">Edit</button>
-                            <button class="btn btn-small btn-danger delete-dept-btn" 
-                                    data-id="${dept.id}" 
-                                    data-name="${dept.name}">Delete</button>
+                            <button class="btn btn-small btn-secondary edit-dept-btn">Edit</button>
+                            <button class="btn btn-small btn-danger delete-dept-btn">Delete</button>
                         </td>
                     `;
+                    
+                    // Store data directly on the button elements to avoid HTML escaping issues
+                    const editBtn = row.querySelector('.edit-dept-btn');
+                    const deleteBtn = row.querySelector('.delete-dept-btn');
+                    
+                    // Store department data on the edit button
+                    editBtn.deptData = {
+                        id: dept.id,
+                        name: dept.name,
+                        approverId: dept.approver_id || '',
+                        slackMessage: dept.slack_approval_message || ''
+                    };
+                    
+                    // Store department data on the delete button
+                    deleteBtn.deptData = {
+                        id: dept.id,
+                        name: dept.name
+                    };
+                    
                     tbody.appendChild(row);
                 });
                 
                 // Add event listeners for edit and delete buttons
                 document.querySelectorAll('.edit-dept-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
-                        const id = this.dataset.id;
-                        const name = this.dataset.name;
-                        const approverId = this.dataset.approverId;
-                        const slackMessage = this.dataset.slackMessage;
-                        editDepartment(id, name, approverId, slackMessage);
+                        const data = this.deptData;
+                        editDepartment(data.id, data.name, data.approverId, data.slackMessage);
                     });
                 });
                 
                 document.querySelectorAll('.delete-dept-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
-                        const id = this.dataset.id;
-                        const name = this.dataset.name;
-                        deleteDepartment(id, name);
+                        const data = this.deptData;
+                        deleteDepartment(data.id, data.name);
                     });
                 });
             } catch (error) {
