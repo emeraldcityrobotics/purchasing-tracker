@@ -1006,7 +1006,7 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
         
         if (status === 'approved') {
             // Check if multi-approval is required
-            if (request.requires_multi_approval && !isAdmin) {
+            if (request.requires_multi_approval) {
                 // Check if this user has already approved
                 const existingApproval = db.prepare(`
                     SELECT id FROM purchase_request_approvals 
@@ -1061,7 +1061,7 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                     return res.json({ success: true, message: `Approval recorded (${newCount}/${requiredApprovals})`, approved: false, approvalCount: newCount, required: requiredApprovals });
                 }
             } else {
-                // Admin can override or single approval is sufficient
+                // Single approval is sufficient for this request
                 db.prepare(`
                     UPDATE purchase_requests 
                     SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP
@@ -1141,6 +1141,55 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
     } catch (error) {
         console.error(error);
         res.status(400).json({ error: 'Failed to update status' });
+    }
+});
+
+// Admin override for approvals
+app.put('/api/purchase-requests/:id/admin-override', requireAuth, requireRole('admin'), (req, res) => {
+    const requestId = req.params.id;
+    
+    try {
+        // Get the purchase request details
+        const request = db.prepare(`
+            SELECT pr.*, d.approver_id as category_approver
+            FROM purchase_requests pr
+            LEFT JOIN departments d ON pr.department_id = d.id
+            WHERE pr.id = ?
+        `).get(requestId);
+        
+        if (!request) {
+            return res.status(404).json({ error: 'Purchase request not found' });
+        }
+        
+        if (request.status !== 'pending') {
+            return res.status(400).json({ error: 'Only pending requests can be overridden' });
+        }
+        
+        // Force approve the request regardless of approval requirements
+        db.prepare(`
+            UPDATE purchase_requests 
+            SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(req.session.userId, requestId);
+        
+        // Get full request details for notification
+        const requestDetails = db.prepare(`
+            SELECT pr.*, v.name as vendor_name, d.name as department_name,
+                   u.full_name as approver_name, u.slack_user_id as approver_slack_id
+            FROM purchase_requests pr
+            JOIN vendors v ON pr.vendor_id = v.id
+            LEFT JOIN departments d ON pr.department_id = d.id
+            LEFT JOIN users u ON u.id = ?
+            WHERE pr.id = ?
+        `).get(req.session.userId, requestId);
+        
+        // Send approved notification
+        sendSlackNotification('approved', requestDetails);
+        
+        res.json({ success: true, message: 'Request approved by admin override' });
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ error: 'Failed to override approval' });
     }
 });
 

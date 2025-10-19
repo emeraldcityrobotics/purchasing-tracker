@@ -220,6 +220,9 @@
                         ${request.status === 'pending' ? `
                             <button class="btn btn-success btn-small" onclick="approveRequest(${request.id})">Approve</button>
                             <button class="btn btn-danger btn-small" onclick="rejectRequest(${request.id})">Reject</button>
+                            ${currentUser && currentUser.role === 'admin' ? `
+                                <button class="btn btn-warning btn-small" onclick="adminOverride(${request.id})" title="Admin Override - Force approve regardless of requirements">Override</button>
+                            ` : ''}
                         ` : ''}
                     </td>
                 `;
@@ -347,6 +350,9 @@
                     <div style="margin-top: 30px; display: flex; gap: 10px;">
                         <button class="btn btn-success" onclick="approveRequest(${currentRequest.id}); closeModal();">Approve Request</button>
                         <button class="btn btn-danger" onclick="rejectRequest(${currentRequest.id}); closeModal();">Reject Request</button>
+                        ${currentUser && currentUser.role === 'admin' ? `
+                            <button class="btn btn-warning" onclick="adminOverride(${currentRequest.id}); closeModal();" title="Admin Override - Force approve regardless of requirements">Admin Override</button>
+                        ` : ''}
                         <button class="btn btn-secondary" onclick="closeModal()">Close</button>
                     </div>
                 ` : `
@@ -404,6 +410,31 @@
                     await loadRequests();
                 } else {
                     showError(data.error || 'Failed to reject request');
+                }
+            } catch (error) {
+                showError('Connection error');
+            }
+        }
+
+        // Admin override for approval
+        async function adminOverride(id) {
+            if (!confirm('Are you sure you want to force approve this request? This will bypass all approval requirements.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/purchase-requests/${id}/admin-override`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Request approved by admin override');
+                    await loadRequests();
+                } else {
+                    showError(data.error || 'Failed to override request');
                 }
             } catch (error) {
                 showError('Connection error');

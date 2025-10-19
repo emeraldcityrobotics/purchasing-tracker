@@ -421,6 +421,17 @@ textarea {
     border-color: var(--text-muted);
 }
 
+.btn-warning {
+    background: #ffc107;
+    color: #212529;
+    border: 1px solid #ffc107;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background: #e0a800;
+    border-color: #d39e00;
+}
+
 .btn-small {
     padding: 5px 10px;
     font-size: 12px;
