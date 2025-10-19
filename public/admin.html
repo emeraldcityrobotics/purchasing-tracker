@@ -159,7 +159,10 @@
                                 <textarea id="newSlackApprovalMessage" rows="2" placeholder="e.g., {{category}} request #{{id}} ({{order_name}}) approved by {{approver}} - ${{total}} from {{vendor}} - {{link}}"></textarea>
                                 <small style="color: #6c757d;">Variables: {{id}}, {{order_name}}, {{category}}, {{approver}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{link}}</small>
                             </div>
-                            <button type="submit" class="btn btn-primary">Add Category</button>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="submit" class="btn btn-primary">Add Category</button>
+                                <button type="button" id="cancelEditDept" class="btn btn-secondary" style="display: none;">Cancel Edit</button>
+                            </div>
                         </div>
                     </form>
 
@@ -639,17 +642,41 @@
                 
                 data.departments.forEach(dept => {
                     const row = document.createElement('tr');
-                    const slackMsg = dept.slack_approval_message ? dept.slack_approval_message.replace(/'/g, "\\'") : '';
                     row.innerHTML = `
                         <td>${dept.name}</td>
                         <td>${dept.approver_name || 'Any Approver'}</td>
                         <td>${new Date(dept.created_at).toLocaleDateString()}</td>
                         <td>
-                            <button onclick="editDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}', ${dept.approver_id || 'null'}, '${slackMsg}')" class="btn btn-small btn-secondary">Edit</button>
-                            <button onclick="deleteDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}')" class="btn btn-small btn-danger">Delete</button>
+                            <button class="btn btn-small btn-secondary edit-dept-btn" 
+                                    data-id="${dept.id}" 
+                                    data-name="${dept.name}" 
+                                    data-approver-id="${dept.approver_id || ''}" 
+                                    data-slack-message="${dept.slack_approval_message || ''}">Edit</button>
+                            <button class="btn btn-small btn-danger delete-dept-btn" 
+                                    data-id="${dept.id}" 
+                                    data-name="${dept.name}">Delete</button>
                         </td>
                     `;
                     tbody.appendChild(row);
+                });
+                
+                // Add event listeners for edit and delete buttons
+                document.querySelectorAll('.edit-dept-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        const name = this.dataset.name;
+                        const approverId = this.dataset.approverId;
+                        const slackMessage = this.dataset.slackMessage;
+                        editDepartment(id, name, approverId, slackMessage);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-dept-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        const name = this.dataset.name;
+                        deleteDepartment(id, name);
+                    });
                 });
             } catch (error) {
                 showError('Failed to load categories');
@@ -664,7 +691,18 @@
             document.getElementById('newDepartmentApprover').value = approverId || '';
             document.getElementById('newSlackApprovalMessage').value = slackMessage || '';
             document.querySelector('#addDepartmentForm button[type="submit"]').textContent = 'Update Category';
+            document.getElementById('cancelEditDept').style.display = 'block';
         }
+
+        function cancelEditDepartment() {
+            editingDepartmentId = null;
+            document.getElementById('addDepartmentForm').reset();
+            document.querySelector('#addDepartmentForm button[type="submit"]').textContent = 'Add Category';
+            document.getElementById('cancelEditDept').style.display = 'none';
+        }
+
+        // Add cancel edit event listener
+        document.getElementById('cancelEditDept').addEventListener('click', cancelEditDepartment);
 
         document.getElementById('addDepartmentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -693,6 +731,7 @@
                     showSuccess(editingDepartmentId ? 'Category updated successfully' : 'Category created successfully');
                     document.getElementById('addDepartmentForm').reset();
                     document.querySelector('#addDepartmentForm button[type="submit"]').textContent = 'Add Category';
+                    document.getElementById('cancelEditDept').style.display = 'none';
                     editingDepartmentId = null;
                     loadDepartments();
                 } else {
