@@ -49,6 +49,7 @@
                 <button class="tab-btn active" data-tab="users">Users</button>
                 <button class="tab-btn" data-tab="vendors">Vendors</button>
                 <button class="tab-btn" data-tab="departments">Categories</button>
+                <button class="tab-btn" data-tab="funding-sources">Funding Sources</button>
                 <button class="tab-btn" data-tab="settings">Settings</button>
             </div>
 
@@ -157,7 +158,7 @@
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label>Slack Approval Message Template (Optional)</label>
                                 <textarea id="newSlackApprovalMessage" rows="2" placeholder="e.g., {{category}} request #{{id}} ({{order_name}}) approved by {{approver}} - ${{total}} from {{vendor}} - {{link}}"></textarea>
-                                <small style="color: #6c757d;">Variables: {{id}}, {{order_name}}, {{category}}, {{approver}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{link}}</small>
+                                <small style="color: #6c757d;">Variables: {{id}}, {{order_name}}, {{category}}, {{approver}}, {{vendor}}, {{total}}, {{requester}}, {{requested_arrival_date}}, {{link}}</small>
                             </div>
                             <div style="display: flex; gap: 0.5rem;">
                                 <button type="submit" class="btn btn-primary">Add Category</button>
@@ -177,6 +178,44 @@
                                 </tr>
                             </thead>
                             <tbody id="departmentsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Funding Sources Tab -->
+            <div class="tab-content" id="funding-sources-tab">
+                <div class="card">
+                    <h2>Funding Sources Management</h2>
+                    <form id="addFundingSourceForm" style="margin-bottom: 2rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 1rem; align-items: end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Funding Source Name</label>
+                                <input type="text" id="newFundingSourceName" required placeholder="e.g., FIRSTWA Account">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Description (Optional)</label>
+                                <input type="text" id="newFundingSourceDescription" placeholder="e.g., Main operational budget for technology purchases">
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="submit" class="btn btn-primary">Add Funding Source</button>
+                                <button type="button" id="cancelEditFundingSource" class="btn btn-secondary" style="display: none;">Cancel Edit</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div id="fundingSourcesTableContainer">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fundingSourcesTable"></tbody>
                         </table>
                     </div>
                 </div>
@@ -228,25 +267,25 @@
                         <div class="form-group">
                             <label>Approved Request Message Template</label>
                             <textarea id="slackApprovedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Default approval template (overridden by category-specific templates). Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{order_name}}, {{category}}, {{approver}}, {{link}}</small>
+                            <small style="color: #666;">Default approval template (overridden by category-specific templates). Variables: {{id}}, {{vendor}}, {{total}}, {{requested_arrival_date}}, {{order_name}}, {{category}}, {{approver}}, {{requester}}, {{link}}</small>
                         </div>
                         
                         <div class="form-group">
                             <label>Multi-Approval Required Message Template</label>
                             <textarea id="slackMultiApprovalMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when a request requires multiple approvals. Variables: {{id}}, {{vendor}}, {{total}}, {{order_name}}, {{required_approvals}}, {{link}}</small>
+                            <small style="color: #666;">Sent when a request requires multiple approvals. Variables: {{id}}, {{vendor}}, {{total}}, {{order_name}}, {{requester}}, {{required_approvals}}, {{link}}</small>
                         </div>
                         
                         <div class="form-group">
                             <label>Ordered Purchase Message Template</label>
                             <textarea id="slackOrderedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when a purchase order is marked as ordered from vendor. Variables: {{id}}, {{vendor}}, {{total}}, {{actual_amount_spent}}, {{requested_arrival_date}}, {{tracking_number}}, {{estimated_delivery_date}}, {{order_name}}, {{link}}</small>
+                            <small style="color: #666;">Sent when a purchase order is marked as ordered from vendor. Variables: {{id}}, {{vendor}}, {{total}}, {{actual_amount_spent}}, {{requested_arrival_date}}, {{tracking_number}}, {{estimated_delivery_date}}, {{order_name}}, {{requester}}, {{link}}</small>
                         </div>
                         
                         <div class="form-group">
                             <label>Arrived Order Message Template</label>
                             <textarea id="slackArrivedMessage" rows="2" style="font-family: inherit;"></textarea>
-                            <small style="color: #666;">Sent when an order arrives and needs to be received. Variables: {{id}}, {{vendor}}, {{total}}, {{actual_amount_spent}}, {{tracking_number}}, {{estimated_delivery_date}}, {{requested_arrival_date}}, {{order_name}}, {{link}}</small>
+                            <small style="color: #666;">Sent when an order arrives and needs to be received. Variables: {{id}}, {{vendor}}, {{total}}, {{actual_amount_spent}}, {{tracking_number}}, {{estimated_delivery_date}}, {{requested_arrival_date}}, {{order_name}}, {{requester}}, {{link}}</small>
                         </div>
 
                         <h3 style="margin-top: 40px; margin-bottom: 20px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">📊 Google Sheets Integration</h3>
@@ -384,6 +423,7 @@
             loadUsers();
             loadVendors();
             loadDepartments();
+            loadFundingSources();
             loadApprovers();
             loadSettings();
         }
@@ -767,6 +807,144 @@
                 }
             } catch (error) {
                 showError('Failed to delete department');
+            }
+        }
+
+        // Funding Sources Management
+        async function loadFundingSources() {
+            try {
+                const response = await fetch('/api/funding-sources');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('fundingSourcesTable');
+                tbody.innerHTML = '';
+                
+                data.fundingSources.forEach(source => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${source.name}</td>
+                        <td>${source.description || '-'}</td>
+                        <td><span class="status-badge ${source.is_active ? 'status-active' : 'status-inactive'}">${source.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td>${new Date(source.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button class="btn btn-small btn-secondary edit-funding-source-btn">Edit</button>
+                            <button class="btn btn-small btn-danger delete-funding-source-btn">Delete</button>
+                        </td>
+                    `;
+                    
+                    // Store data directly on the button elements
+                    const editBtn = row.querySelector('.edit-funding-source-btn');
+                    const deleteBtn = row.querySelector('.delete-funding-source-btn');
+                    
+                    editBtn.sourceData = {
+                        id: source.id,
+                        name: source.name,
+                        description: source.description || '',
+                        isActive: source.is_active
+                    };
+                    
+                    deleteBtn.sourceData = {
+                        id: source.id,
+                        name: source.name
+                    };
+                    
+                    tbody.appendChild(row);
+                });
+                
+                // Add event listeners for edit and delete buttons
+                document.querySelectorAll('.edit-funding-source-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const data = this.sourceData;
+                        editFundingSource(data.id, data.name, data.description, data.isActive);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-funding-source-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const data = this.sourceData;
+                        if (confirm(`Are you sure you want to delete the funding source "${data.name}"?`)) {
+                            deleteFundingSource(data.id);
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Failed to load funding sources:', error);
+                showError('Failed to load funding sources');
+            }
+        }
+
+        let editingFundingSourceId = null;
+
+        function editFundingSource(id, name, description, isActive) {
+            editingFundingSourceId = id;
+            document.getElementById('newFundingSourceName').value = name;
+            document.getElementById('newFundingSourceDescription').value = description;
+            document.getElementById('cancelEditFundingSource').style.display = 'inline-block';
+            document.querySelector('#addFundingSourceForm button[type="submit"]').textContent = 'Update Funding Source';
+        }
+
+        document.getElementById('cancelEditFundingSource').addEventListener('click', () => {
+            editingFundingSourceId = null;
+            document.getElementById('addFundingSourceForm').reset();
+            document.getElementById('cancelEditFundingSource').style.display = 'none';
+            document.querySelector('#addFundingSourceForm button[type="submit"]').textContent = 'Add Funding Source';
+        });
+
+        document.getElementById('addFundingSourceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('newFundingSourceName').value;
+            const description = document.getElementById('newFundingSourceDescription').value;
+            
+            try {
+                const url = editingFundingSourceId ? `/api/funding-sources/${editingFundingSourceId}` : '/api/funding-sources';
+                const method = editingFundingSourceId ? 'PUT' : 'POST';
+                
+                const body = { name, description };
+                if (editingFundingSourceId) {
+                    body.is_active = 1; // Keep active when editing
+                }
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                if (response.ok) {
+                    document.getElementById('addFundingSourceForm').reset();
+                    document.getElementById('cancelEditFundingSource').style.display = 'none';
+                    document.querySelector('#addFundingSourceForm button[type="submit"]').textContent = 'Add Funding Source';
+                    editingFundingSourceId = null;
+                    loadFundingSources();
+                    showSuccess(editingFundingSourceId ? 'Funding source updated successfully' : 'Funding source added successfully');
+                } else {
+                    const errorData = await response.json();
+                    showError(errorData.error || 'Failed to save funding source');
+                }
+            } catch (error) {
+                console.error('Failed to save funding source:', error);
+                showError('Failed to save funding source');
+            }
+        });
+
+        async function deleteFundingSource(id) {
+            try {
+                const response = await fetch(`/api/funding-sources/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadFundingSources();
+                    showSuccess('Funding source deleted successfully');
+                } else {
+                    const errorData = await response.json();
+                    showError(errorData.error || 'Failed to delete funding source');
+                }
+            } catch (error) {
+                console.error('Failed to delete funding source:', error);
+                showError('Failed to delete funding source');
             }
         }
 

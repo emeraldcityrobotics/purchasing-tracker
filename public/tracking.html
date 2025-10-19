@@ -75,6 +75,7 @@
                                 <th>Vendor</th>
                                 <th>Estimated</th>
                                 <th>Actual Spent</th>
+                                <th>Funding</th>
                                 <th>Status</th>
                                 <th>Tracking</th>
                                 <th>Est. Delivery</th>
@@ -226,7 +227,7 @@
             tbody.innerHTML = '';
             
             if (filteredRequests.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #999;">No requests to display</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 30px; color: #999;">No requests to display</td></tr>';
                 return;
             }
             
@@ -256,6 +257,7 @@
                             '<span style="color: #999;">-</span>'
                         }
                     </td>
+                    <td>${request.funding_source_name ? `<span style="color: #007bff; font-weight: 500;">${request.funding_source_name}</span>` : '<span style="color: #999;">-</span>'}</td>
                     <td><span class="status-badge status-${request.status}">${request.status.replace('_', ' ')}</span></td>
                     <td>${request.tracking_number ? `<span style="color: #28a745; font-weight: 500;">${request.tracking_number}</span>` : '<span style="color: #999;">-</span>'}</td>
                     <td>${request.estimated_delivery_date ? `<span style="color: #007bff;">${formatDate(request.estimated_delivery_date)}</span>` : '<span style="color: #999;">-</span>'}</td>
@@ -458,6 +460,12 @@
                                 <span>${currentRequest.actual_amount_spent > currentRequest.total ? '+' : ''}$${(currentRequest.actual_amount_spent - currentRequest.total).toFixed(2)}</span>
                             </div>
                         ` : ''}
+                        ${currentRequest.funding_source_name ? `
+                            <div class="summary-row">
+                                <span>Funding Source:</span>
+                                <span style="font-weight: 600; color: #007bff;">${currentRequest.funding_source_name}</span>
+                            </div>
+                        ` : ''}
                     ` : ''}
                 </div>
 
@@ -495,6 +503,14 @@
                     </div>
                     
                     <div class="form-group">
+                        <label for="fundingSource">Funding Source <span style="color: red;">*</span></label>
+                        <select id="fundingSource" required>
+                            <option value="">Select funding source...</option>
+                        </select>
+                        <small style="color: #666;">Choose the budget/account this purchase should be charged to</small>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="trackingNumber">Tracking Number</label>
                         <input type="text" id="trackingNumber" placeholder="Enter tracking number (optional)">
                         <small style="color: #666;">If available from the vendor</small>
@@ -513,17 +529,27 @@
                 </form>
             `;
             
+            // Load funding sources for the dropdown
+            loadFundingSources();
+            
             // Handle form submission
             document.getElementById('orderForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
                 const actualAmount = parseFloat(document.getElementById('actualAmount').value);
+                const fundingSourceId = document.getElementById('fundingSource').value;
                 const trackingNumber = document.getElementById('trackingNumber').value.trim();
                 const estimatedDelivery = document.getElementById('estimatedDelivery').value;
                 
                 // Validate actual amount
                 if (!actualAmount || actualAmount <= 0) {
                     showError('Please enter a valid actual amount spent');
+                    return;
+                }
+                
+                // Validate funding source
+                if (!fundingSourceId) {
+                    showError('Please select a funding source');
                     return;
                 }
                 
@@ -535,7 +561,8 @@
                             status: 'ordered',
                             tracking_number: trackingNumber || null,
                             estimated_delivery_date: estimatedDelivery || null,
-                            actual_amount_spent: actualAmount
+                            actual_amount_spent: actualAmount,
+                            funding_source_id: parseInt(fundingSourceId)
                         })
                     });
                     
@@ -681,6 +708,31 @@
             const modal = document.getElementById('detailsModal');
             modal.classList.remove('show');
             modal.style.display = 'none';
+        }
+
+        // Load funding sources for dropdown
+        async function loadFundingSources() {
+            try {
+                const response = await fetch('/api/funding-sources');
+                const data = await response.json();
+                
+                const select = document.getElementById('fundingSource');
+                if (select) {
+                    select.innerHTML = '<option value="">Select funding source...</option>';
+                    
+                    data.fundingSources.forEach(source => {
+                        if (source.is_active) {
+                            const option = document.createElement('option');
+                            option.value = source.id;
+                            option.textContent = source.name;
+                            select.appendChild(option);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load funding sources:', error);
+                showError('Failed to load funding sources');
+            }
         }
 
         // Toast notification system

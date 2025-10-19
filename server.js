@@ -233,6 +233,30 @@ function initializeDatabase() {
         // Table already exists, ignore
     }
 
+    // Create funding sources table
+    try {
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS funding_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                is_active INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('Created funding_sources table');
+    } catch (error) {
+        // Table already exists, ignore
+    }
+
+    // Add funding_source_id to purchase_requests table (migration)
+    try {
+        db.exec(`ALTER TABLE purchase_requests ADD COLUMN funding_source_id INTEGER REFERENCES funding_sources(id)`);
+        console.log('Added funding_source_id column to purchase_requests table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
     // Create settings table
     try {
         db.exec(`
@@ -321,6 +345,15 @@ function initializeDatabase() {
         console.log('  Admin: admin / admin123');
         console.log('  Approver: approver / approver123');
         console.log('  Purchaser: purchaser / purchaser123');
+    }
+
+    // Create default funding sources if none exist
+    const fundingSourceCount = db.prepare('SELECT COUNT(*) as count FROM funding_sources').get();
+    if (fundingSourceCount.count === 0) {
+        db.prepare('INSERT INTO funding_sources (name, description) VALUES (?, ?)').run('FIRSTWA Account', 'FIRST Washington robotics team account');
+        db.prepare('INSERT INTO funding_sources (name, description) VALUES (?, ?)').run('Hack Club Account', 'Hack Club funding account');
+        db.prepare('INSERT INTO funding_sources (name, description) VALUES (?, ?)').run('General Fund', 'General purpose funding');
+        console.log('Default funding sources created');
     }
 }
 
@@ -480,6 +513,9 @@ async function sendSlackNotification(messageType, requestData) {
             .replace(/\{\{estimated_delivery_date\}\}/g, requestData.estimated_delivery_date ? formatDate(requestData.estimated_delivery_date) : 'Not specified')
             .replace(/\{\{requested_arrival_date\}\}/g, requestData.requested_arrival_date ? formatDate(requestData.requested_arrival_date) : 'Not specified')
             .replace(/\{\{order_name\}\}/g, requestData.order_name || 'Unnamed Order')
+            .replace(/\{\{category\}\}/g, requestData.department_name || 'No Category')
+            .replace(/\{\{approver\}\}/g, requestData.approver_name || 'System')
+            .replace(/\{\{required_approvals\}\}/g, requestData.required_approvals || '1')
             .replace(/\{\{link\}\}/g, requestLink);
 
         console.log(`[Slack] Sending message: ${message}`);
@@ -872,18 +908,62 @@ app.delete('/api/departments/:id', requireAuth, requireRole('admin'), (req, res)
     }
 });
 
+// Funding Sources
+app.get('/api/funding-sources', requireAuth, (req, res) => {
+    const fundingSources = db.prepare(`
+        SELECT *
+        FROM funding_sources
+        ORDER BY name
+    `).all();
+    res.json({ fundingSources });
+});
+
+app.post('/api/funding-sources', requireAuth, requireRole('admin'), (req, res) => {
+    const { name, description } = req.body;
+    
+    try {
+        const result = db.prepare('INSERT INTO funding_sources (name, description, is_active) VALUES (?, ?, 1)').run(name, description || null);
+        res.json({ success: true, id: result.lastInsertRowid });
+    } catch (error) {
+        res.status(400).json({ error: 'Failed to create funding source' });
+    }
+});
+
+app.put('/api/funding-sources/:id', requireAuth, requireRole('admin'), (req, res) => {
+    const { name, description, is_active } = req.body;
+    
+    try {
+        db.prepare('UPDATE funding_sources SET name = ?, description = ?, is_active = ? WHERE id = ?')
+            .run(name, description || null, is_active, req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ error: 'Failed to update funding source' });
+    }
+});
+
+app.delete('/api/funding-sources/:id', requireAuth, requireRole('admin'), (req, res) => {
+    try {
+        db.prepare('DELETE FROM funding_sources WHERE id = ?').run(req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ error: 'Failed to delete funding source' });
+    }
+});
+
 // Purchase Requests
 app.get('/api/purchase-requests', requireAuth, (req, res) => {
     let query = `
         SELECT pr.*, 
                v.name as vendor_name,
                d.name as department_name,
-               a.full_name as approver_name
+               a.full_name as approver_name,
+               fs.name as funding_source_name
         FROM purchase_requests pr
         JOIN vendors v ON pr.vendor_id = v.id
         LEFT JOIN departments d ON pr.department_id = d.id
         JOIN users u ON pr.requester_id = u.id
         LEFT JOIN users a ON pr.approved_by = a.id
+        LEFT JOIN funding_sources fs ON pr.funding_source_id = fs.id
     `;
     
     // Filter based on role
@@ -902,12 +982,14 @@ app.get('/api/purchase-requests/:id', requireAuth, (req, res) => {
         SELECT pr.*, 
                v.name as vendor_name, v.contact_person, v.email, v.phone,
                d.name as department_name,
-               a.full_name as approver_name
+               a.full_name as approver_name,
+               fs.name as funding_source_name
         FROM purchase_requests pr
         JOIN vendors v ON pr.vendor_id = v.id
         LEFT JOIN departments d ON pr.department_id = d.id
         JOIN users u ON pr.requester_id = u.id
         LEFT JOIN users a ON pr.approved_by = a.id
+        LEFT JOIN funding_sources fs ON pr.funding_source_id = fs.id
         WHERE pr.id = ?
     `).get(req.params.id);
     
@@ -1043,11 +1125,13 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                     // Get full request details including approver info
                     const requestDetails = db.prepare(`
                         SELECT pr.*, v.name as vendor_name, d.name as department_name, 
-                               u.full_name as approver_name, u.slack_user_id as approver_slack_id
+                               u.full_name as approver_name, u.slack_user_id as approver_slack_id,
+                               requester.full_name as requester_name
                         FROM purchase_requests pr
                         JOIN vendors v ON pr.vendor_id = v.id
                         LEFT JOIN departments d ON pr.department_id = d.id
                         LEFT JOIN users u ON u.id = ?
+                        LEFT JOIN users requester ON pr.requester_id = requester.id
                         WHERE pr.id = ?
                     `).get(req.session.userId, requestId);
                     
@@ -1071,11 +1155,13 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                 // Get full request details including approver info
                 const requestDetails = db.prepare(`
                     SELECT pr.*, v.name as vendor_name, d.name as department_name,
-                           u.full_name as approver_name, u.slack_user_id as approver_slack_id
+                           u.full_name as approver_name, u.slack_user_id as approver_slack_id,
+                           requester.full_name as requester_name
                     FROM purchase_requests pr
                     JOIN vendors v ON pr.vendor_id = v.id
                     LEFT JOIN departments d ON pr.department_id = d.id
                     LEFT JOIN users u ON u.id = ?
+                    LEFT JOIN users requester ON pr.requester_id = requester.id
                     WHERE pr.id = ?
                 `).get(req.session.userId, requestId);
                 
@@ -1090,11 +1176,16 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
             `).run(req.session.userId, requestId);
         } else if (status === 'ordered') {
             // Mark as ordered with optional tracking number, estimated delivery date, and actual amount spent
-            const { tracking_number, estimated_delivery_date, actual_amount_spent } = req.body;
+            const { tracking_number, estimated_delivery_date, actual_amount_spent, funding_source_id } = req.body;
             
             // Validate actual_amount_spent is provided and is a positive number
             if (!actual_amount_spent || actual_amount_spent <= 0) {
                 return res.status(400).json({ error: 'Actual amount spent is required and must be greater than 0' });
+            }
+            
+            // Validate funding_source_id is provided
+            if (!funding_source_id) {
+                return res.status(400).json({ error: 'Funding source is required' });
             }
             
             const updateQuery = `
@@ -1102,17 +1193,20 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
                 SET status = ?, 
                     tracking_number = ?, 
                     estimated_delivery_date = ?,
-                    actual_amount_spent = ?
+                    actual_amount_spent = ?,
+                    funding_source_id = ?
                 WHERE id = ?
             `;
             
-            db.prepare(updateQuery).run(status, tracking_number || null, estimated_delivery_date || null, actual_amount_spent, requestId);
+            db.prepare(updateQuery).run(status, tracking_number || null, estimated_delivery_date || null, actual_amount_spent, funding_source_id, requestId);
             
             // Get vendor name for notification
             const requestDetails = db.prepare(`
-                SELECT pr.*, v.name as vendor_name
+                SELECT pr.*, v.name as vendor_name, 
+                       requester.full_name as requester_name
                 FROM purchase_requests pr
                 JOIN vendors v ON pr.vendor_id = v.id
+                LEFT JOIN users requester ON pr.requester_id = requester.id
                 WHERE pr.id = ?
             `).get(requestId);
             
@@ -1175,11 +1269,13 @@ app.put('/api/purchase-requests/:id/admin-override', requireAuth, requireRole('a
         // Get full request details for notification
         const requestDetails = db.prepare(`
             SELECT pr.*, v.name as vendor_name, d.name as department_name,
-                   u.full_name as approver_name, u.slack_user_id as approver_slack_id
+                   u.full_name as approver_name, u.slack_user_id as approver_slack_id,
+                   requester.full_name as requester_name
             FROM purchase_requests pr
             JOIN vendors v ON pr.vendor_id = v.id
             LEFT JOIN departments d ON pr.department_id = d.id
             LEFT JOIN users u ON u.id = ?
+            LEFT JOIN users requester ON pr.requester_id = requester.id
             WHERE pr.id = ?
         `).get(req.session.userId, requestId);
         
@@ -1272,9 +1368,11 @@ app.put('/api/purchase-requests/:requestId/items/:itemId/receive', requireAuth, 
         // Send notification when first items arrive (transition from ordered to partially_received)
         if (wasOrdered && (newStatus === 'partially_received' || newStatus === 'completed')) {
             const requestDetails = db.prepare(`
-                SELECT pr.*, v.name as vendor_name
+                SELECT pr.*, v.name as vendor_name,
+                       requester.full_name as requester_name
                 FROM purchase_requests pr
                 JOIN vendors v ON pr.vendor_id = v.id
+                LEFT JOIN users requester ON pr.requester_id = requester.id
                 WHERE pr.id = ?
             `).get(requestId);
             
