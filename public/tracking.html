@@ -391,6 +391,27 @@
                             <span class="status-badge status-${currentRequest.status}">${currentRequest.status.replace('_', ' ')}</span>
                         </div>
                     </div>
+                    ${(currentRequest.requires_multi_approval || (currentRequest.approvers && currentRequest.approvers.length > 0)) ? `
+                        <div class="detail-item" style="background: #fff3cd;">
+                            <div class="detail-label">${currentRequest.requires_multi_approval ? 'Approval Progress' : 'Approved By'}</div>
+                            <div class="detail-value">
+                                ${currentRequest.approvers && currentRequest.approvers.length > 0 ? `
+                                    ${currentRequest.requires_multi_approval ? `
+                                        <div style="margin-bottom: 8px; font-weight: bold;">
+                                            ${currentRequest.approvers.length} / ${getRequiredApprovals()} approvals
+                                        </div>
+                                    ` : ''}
+                                    ${currentRequest.approvers.map(approver => `
+                                        <div style="margin: 2px 0; font-size: 0.9em;">
+                                            ${approver.approver_name}
+                                        </div>
+                                    `).join('')}
+                                ` : `
+                                    ${currentRequest.requires_multi_approval ? `${currentRequest.approval_count || 0} / ${getRequiredApprovals()} approvals` : 'Pending approval'}
+                                `}
+                            </div>
+                        </div>
+                    ` : ''}
                     <div class="detail-item">
                         <div class="detail-label">Overall Progress</div>
                         <div class="detail-value">
@@ -787,6 +808,11 @@
             if (!dateString) return 'Not specified';
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function getRequiredApprovals() {
+            // Default to 5 if not available - this should match server settings
+            return 5;
         }
 
         // Initialize

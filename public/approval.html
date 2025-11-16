@@ -207,6 +207,16 @@
                 const date = new Date(request.created_at).toLocaleDateString();
                 const orderName = request.order_name || '<em style="color: #999;">No name</em>';
                 
+                // Create status display with approval progress for multi-approval pending requests
+                let statusDisplay = '';
+                if (request.status === 'pending' && request.requires_multi_approval) {
+                    const approvalCount = request.approval_count || 0;
+                    const requiredApprovals = 5; // This should match the server setting
+                    statusDisplay = `<span class="status-badge status-${request.status}">pending (${approvalCount}/${requiredApprovals})</span>`;
+                } else {
+                    statusDisplay = `<span class="status-badge status-${request.status}">${request.status.replace('_', ' ')}</span>`;
+                }
+                
                 row.innerHTML = `
                     <td>#${request.id}</td>
                     <td>${orderName}</td>
@@ -214,7 +224,7 @@
                     <td>${request.requester_name}</td>
                     <td>${request.vendor_name}</td>
                     <td>$${request.total.toFixed(2)}</td>
-                    <td><span class="status-badge status-${request.status}">${request.status.replace('_', ' ')}</span></td>
+                    <td>${statusDisplay}</td>
                     <td>
                         <button class="btn btn-primary btn-small" onclick="viewRequest(${request.id})">View</button>
                         ${request.status === 'pending' ? `
@@ -298,10 +308,25 @@
                             <span class="status-badge status-${currentRequest.status}">${currentRequest.status.replace('_', ' ')}</span>
                         </div>
                     </div>
-                    ${currentRequest.requires_multi_approval ? `
+                    ${(currentRequest.requires_multi_approval || (currentRequest.approvers && currentRequest.approvers.length > 0)) ? `
                         <div class="detail-item" style="background: #fff3cd;">
-                            <div class="detail-label">Approval Progress</div>
-                            <div class="detail-value">${currentRequest.approval_count || 0} / 5 approvals</div>
+                            <div class="detail-label">${currentRequest.requires_multi_approval ? 'Approval Progress' : 'Approved By'}</div>
+                            <div class="detail-value">
+                                ${currentRequest.approvers && currentRequest.approvers.length > 0 ? `
+                                    ${currentRequest.requires_multi_approval ? `
+                                        <div style="margin-bottom: 8px; font-weight: bold;">
+                                            ${currentRequest.approvers.length} / ${getRequiredApprovals()} approvals
+                                        </div>
+                                    ` : ''}
+                                    ${currentRequest.approvers.map(approver => `
+                                        <div style="margin: 2px 0; font-size: 0.9em;">
+                                            ${approver.approver_name}
+                                        </div>
+                                    `).join('')}
+                                ` : `
+                                    ${currentRequest.requires_multi_approval ? `${currentRequest.approval_count || 0} / ${getRequiredApprovals()} approvals` : 'Pending approval'}
+                                `}
+                            </div>
                         </div>
                     ` : ''}
                 </div>
@@ -337,14 +362,6 @@
                         <span>$${currentRequest.total.toFixed(2)}</span>
                     </div>
                 </div>
-
-                ${currentRequest.approved_by ? `
-                    <div style="margin-top: 20px; padding: 15px; background: #d4edda; border-radius: 5px;">
-                        <strong>Approval Information:</strong><br>
-                        Approved by: ${currentRequest.approver_name}<br>
-                        Date: ${approvedDate}
-                    </div>
-                ` : ''}
 
                 ${currentRequest.status === 'pending' ? `
                     <div style="margin-top: 30px; display: flex; gap: 10px;">
@@ -470,6 +487,11 @@
             if (!dateString) return 'Not specified';
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function getRequiredApprovals() {
+            // Default to 5 if not available - this should match server settings
+            return 5;
         }
 
         // Initialize

@@ -1001,7 +1001,27 @@ app.get('/api/purchase-requests/:id', requireAuth, (req, res) => {
         'SELECT * FROM purchase_request_items WHERE purchase_request_id = ?'
     ).all(req.params.id);
     
-    res.json({ ...request, items });
+    // Get all approvers for this request
+    let approvers = [];
+    
+    if (request.requires_multi_approval) {
+        // For multi-approval requests, get all approvers from purchase_request_approvals table
+        approvers = db.prepare(`
+            SELECT u.full_name as approver_name, pra.approved_at
+            FROM purchase_request_approvals pra
+            JOIN users u ON pra.approver_id = u.id
+            WHERE pra.purchase_request_id = ?
+            ORDER BY pra.approved_at
+        `).all(req.params.id);
+    } else if (request.status === 'approved' && request.approved_by) {
+        // For single-approval requests, get the single approver
+        approvers = [{
+            approver_name: request.approver_name,
+            approved_at: request.approved_at
+        }];
+    }
+    
+    res.json({ ...request, items, approvers });
 });
 
 app.post('/api/purchase-requests', requireAuth, (req, res) => {
@@ -1081,8 +1101,10 @@ app.put('/api/purchase-requests/:id/status', requireAuth, requireRole('admin', '
             return res.status(404).json({ error: 'Purchase request not found' });
         }
         
-        // Check if this approver is authorized for this category
-        if (!isAdmin && request.category_approver && request.category_approver !== req.session.userId) {
+        // Check if this approver is authorized for this category.
+        // Exception: if the request requires multi-approval (high-value), allow any approver to approve it
+        // (multi-approval flow handles recording multiple approvers separately).
+        if (!isAdmin && request.category_approver && request.category_approver !== req.session.userId && !request.requires_multi_approval) {
             return res.status(403).json({ error: 'You are not authorized to approve purchases in this category' });
         }
         
