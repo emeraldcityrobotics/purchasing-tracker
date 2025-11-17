@@ -333,7 +333,7 @@
                         <td>${linkHtml}</td>
                         <td>${item.quantity}</td>
                         <td>${item.quantity_received} ${isFullyReceived ? '✓' : ''}</td>
-                        <td>$${item.unit_price.toFixed(2)}</td>
+                        <td>$${item.unit_price.toFixed(5)}</td>
                         <td>$${item.line_total.toFixed(2)}</td>
                 `;
                 
@@ -465,6 +465,14 @@
                     <div class="summary-row">
                         <span>Tax:</span>
                         <span>$${currentRequest.tax_amount.toFixed(2)}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Shipping:</span>
+                        <span>$${(currentRequest.shipping_cost || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Tariff:</span>
+                        <span>$${(currentRequest.tariff_cost || 0).toFixed(2)}</span>
                     </div>
                     <div class="summary-row ${currentRequest.actual_amount_spent ? '' : 'total'}">
                         <span>Estimated Total:</span>

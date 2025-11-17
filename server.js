@@ -136,6 +136,14 @@ function initializeDatabase() {
         // Column already exists, ignore
     }
 
+    // Add tariff_cost column if it doesn't exist (migration)
+    try {
+        db.exec(`ALTER TABLE purchase_requests ADD COLUMN tariff_cost REAL DEFAULT 0`);
+        console.log('Added tariff_cost column to purchase_requests table');
+    } catch (error) {
+        // Column already exists, ignore
+    }
+
     // Add approver_id to departments table (migration)
     try {
         db.exec(`ALTER TABLE departments ADD COLUMN approver_id INTEGER REFERENCES users(id)`);
@@ -717,7 +725,7 @@ app.post('/api/public/departments', (req, res) => {
 });
 
 app.post('/api/public/purchase-requests', (req, res) => {
-    const { vendor_id, department_id, requester_name, order_name, items, tax_rate, shipping_cost, notes, requested_arrival_date } = req.body;
+    const { vendor_id, department_id, requester_name, order_name, items, tax_rate, shipping_cost, tariff_cost, notes, requested_arrival_date } = req.body;
     
     if (!requester_name || requester_name.trim().length === 0) {
         return res.status(400).json({ error: 'Requester name is required' });
@@ -736,7 +744,8 @@ app.post('/api/public/purchase-requests', (req, res) => {
         const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
         const tax_amount = subtotal * (tax_rate / 100);
         const shipping = shipping_cost || 0;
-        const total = subtotal + tax_amount + shipping;
+        const tariff = tariff_cost || 0;
+        const total = subtotal + tax_amount + shipping + tariff;
         
         // Check if multi-approval is required (use dynamic threshold from settings)
         const threshold = getMultiApprovalThreshold();
@@ -753,9 +762,9 @@ app.post('/api/public/purchase-requests', (req, res) => {
         
         // Insert purchase request
         const result = db.prepare(`
-            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, order_name, subtotal, tax_amount, shipping_cost, total, notes, requires_multi_approval, approval_count, requested_arrival_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-        `).run(vendor_id, department_id, publicUser.id, requester_name.trim(), order_name ? order_name.trim() : null, subtotal, tax_amount, shipping, total, notes, requiresMultiApproval, requested_arrival_date || null);
+            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, order_name, subtotal, tax_amount, shipping_cost, tariff_cost, total, notes, requires_multi_approval, approval_count, requested_arrival_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+        `).run(vendor_id, department_id, publicUser.id, requester_name.trim(), order_name ? order_name.trim() : null, subtotal, tax_amount, shipping, tariff, total, notes, requiresMultiApproval, requested_arrival_date || null);
         
         const requestId = result.lastInsertRowid;
         
@@ -1025,7 +1034,7 @@ app.get('/api/purchase-requests/:id', requireAuth, (req, res) => {
 });
 
 app.post('/api/purchase-requests', requireAuth, (req, res) => {
-    const { vendor_id, department_id, order_name, items, tax_rate, notes, requested_arrival_date } = req.body;
+    const { vendor_id, department_id, order_name, items, tax_rate, shipping_cost, tariff_cost, notes, requested_arrival_date } = req.body;
     
     if (!items || items.length === 0) {
         return res.status(400).json({ error: 'At least one item is required' });
@@ -1035,16 +1044,18 @@ app.post('/api/purchase-requests', requireAuth, (req, res) => {
         // Calculate totals
         const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
         const tax_amount = subtotal * (tax_rate / 100);
-        const total = subtotal + tax_amount;
+        const shipping = shipping_cost || 0;
+        const tariff = tariff_cost || 0;
+        const total = subtotal + tax_amount + shipping + tariff;
         
         // Get requester name from session
         const requesterName = req.session.userName || 'Unknown';
         
         // Insert purchase request
         const result = db.prepare(`
-            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, order_name, subtotal, tax_amount, total, notes, requested_arrival_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(vendor_id, department_id, req.session.userId, requesterName, order_name ? order_name.trim() : null, subtotal, tax_amount, total, notes, requested_arrival_date || null);
+            INSERT INTO purchase_requests (vendor_id, department_id, requester_id, requester_name, order_name, subtotal, tax_amount, shipping_cost, tariff_cost, total, notes, requested_arrival_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(vendor_id, department_id, req.session.userId, requesterName, order_name ? order_name.trim() : null, subtotal, tax_amount, shipping, tariff, total, notes, requested_arrival_date || null);
         
         const requestId = result.lastInsertRowid;
         

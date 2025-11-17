@@ -86,7 +86,7 @@
                         <button type="button" class="btn btn-secondary add-item-btn" onclick="addItemRow()">+ Add Item</button>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 30px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; margin-top: 30px;">
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="taxRate">Tax Rate (%)</label>
                             <input type="number" id="taxRate" value="11" step="0.01" min="0" max="100" onchange="calculateTotals()">
@@ -98,6 +98,10 @@
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="shippingCost">Shipping Cost ($)</label>
                             <input type="number" id="shippingCost" value="0" step="0.01" min="0" onchange="calculateTotals()">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="tariffCost">Tariff Cost ($ optional)</label>
+                            <input type="number" id="tariffCost" value="0" step="0.01" min="0" onchange="calculateTotals()" placeholder="0.00">
                         </div>
                     </div>
 
@@ -118,6 +122,10 @@
                         <div class="summary-row">
                             <span>Shipping:</span>
                             <span id="shippingAmount">$0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Tariff:</span>
+                            <span id="tariffAmount">$0.00</span>
                         </div>
                         <div class="summary-row total">
                             <span>Total:</span>
@@ -418,7 +426,7 @@
                 </div>
                 <div class="form-group price-input-wrapper">
                     <span class="currency-symbol">$</span>
-                    <input type="number" class="item-price" placeholder="0.00" min="0" step="0.01" value="0" required onchange="calculateTotals()">
+                    <input type="number" class="item-price" placeholder="0.00000" min="0" step="0.00001" value="0" required onchange="calculateTotals()">
                 </div>
                 <div class="form-group">
                     <input type="text" class="item-total" placeholder="$0.00" readonly>
@@ -454,12 +462,14 @@
             const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
             const taxAmount = subtotal * (taxRate / 100);
             const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
-            const total = subtotal + taxAmount + shippingCost;
+            const tariffCost = parseFloat(document.getElementById('tariffCost').value) || 0;
+            const total = subtotal + taxAmount + shippingCost + tariffCost;
             
             document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
             document.getElementById('taxRateDisplay').textContent = taxRate.toFixed(2);
             document.getElementById('taxAmount').textContent = `$${taxAmount.toFixed(2)}`;
             document.getElementById('shippingAmount').textContent = `$${shippingCost.toFixed(2)}`;
+            document.getElementById('tariffAmount').textContent = `$${tariffCost.toFixed(2)}`;
             document.getElementById('total').textContent = `$${total.toFixed(2)}`;
         }
 
@@ -526,6 +536,7 @@
             const orderName = document.getElementById('orderName').value.trim();
             const taxRate = parseFloat(document.getElementById('taxRate').value);
             const shippingCost = parseFloat(document.getElementById('shippingCost').value) || 0;
+            const tariffCost = parseFloat(document.getElementById('tariffCost').value) || 0;
             const notes = document.getElementById('notes').value;
             const requestedArrivalDate = document.getElementById('requestedArrivalDate').value;
             
@@ -567,6 +578,7 @@
                         items: items,
                         tax_rate: taxRate,
                         shipping_cost: shippingCost,
+                        tariff_cost: tariffCost,
                         notes: notes,
                         requested_arrival_date: requestedArrivalDate
                     })
