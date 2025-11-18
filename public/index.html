@@ -9,20 +9,44 @@
 <body>
     <!-- Access Code Screen -->
     <div id="accessCodeScreen" class="login-container">
-        <div class="login-card">
-            <h1>🛒 Purchasing Tracker</h1>
-            <p style="text-align: center; color: #666; margin-bottom: 20px;">Enter the access code to create a purchase request</p>
-            <div id="codeError" class="alert alert-error hidden"></div>
-            <form id="accessCodeForm">
-                <div class="form-group">
-                    <label for="accessCode">Access Code</label>
-                    <input type="text" id="accessCode" name="accessCode" required placeholder="Enter access code" style="text-align: center; font-size: 18px; letter-spacing: 2px;">
+        <div class="access-screen-wrapper">
+            <!-- Left column: Access code card -->
+            <div class="access-left">
+                <div class="login-card">
+                    <h1>🛒 Purchasing Tracker</h1>
+                    <p style="text-align: center; color: #666; margin-bottom: 20px;">Enter the access code to create a purchase request</p>
+                    <div id="codeError" class="alert alert-error hidden"></div>
+                    <form id="accessCodeForm">
+                        <div class="form-group">
+                            <label for="accessCode">Access Code</label>
+                            <input type="text" id="accessCode" name="accessCode" required placeholder="Enter access code" style="text-align: center; font-size: 18px; letter-spacing: 2px;">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Submit</button>
+                    </form>
+
+                    <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px; font-size: 12px; text-align: center;">
+                        <strong>Staff Access:</strong><br>
+                        <a href="/approval" style="color: #667eea; text-decoration: none;">Approvals & Tracking Login →</a>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Submit</button>
-            </form>
-            <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px; font-size: 12px; text-align: center;">
-                <strong>Staff Access:</strong><br>
-                <a href="/approval" style="color: #667eea; text-decoration: none;">Approvals & Tracking Login →</a>
+            </div>
+
+            <!-- Right column: Status widget -->
+            <div class="access-right">
+                <div class="card status-card">
+                    <h3 style="color: #333; margin-bottom: 12px; font-size: 16px;">Purchase Request Status</h3>
+                    <div id="statusDisplay">
+                        <div id="statusContainer" style="max-height: 480px; overflow-y: auto;">
+                            <!-- Status items will be loaded here -->
+                        </div>
+                        <div id="statusLoading" style="text-align: center; color: #666; padding: 20px;">
+                            Loading status...
+                        </div>
+                        <div id="statusError" style="text-align: center; color: #dc3545; padding: 20px; display: none;">
+                            Unable to load status information
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -215,7 +239,88 @@
             } else {
                 document.getElementById('accessCodeScreen').classList.remove('hidden');
                 document.getElementById('mainApp').classList.add('hidden');
+                // Load status display for access code screen
+                loadStatusDisplay();
             }
+        }
+
+        // Load and display purchase request status
+        async function loadStatusDisplay() {
+            const statusContainer = document.getElementById('statusContainer');
+            const statusLoading = document.getElementById('statusLoading');
+            const statusError = document.getElementById('statusError');
+            
+            try {
+                const response = await fetch('/api/public/purchase-requests/status');
+                const data = await response.json();
+                
+                statusLoading.style.display = 'none';
+                statusError.style.display = 'none';
+                
+                if (data && data.length > 0) {
+                    displayStatusItems(data);
+                } else {
+                    statusContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No purchase requests found</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load status:', error);
+                statusLoading.style.display = 'none';
+                statusError.style.display = 'block';
+            }
+        }
+
+        // Display status items
+        function displayStatusItems(requests) {
+            const statusContainer = document.getElementById('statusContainer');
+            
+            if (requests.length === 0) {
+                statusContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No purchase requests found</div>';
+                return;
+            }
+            
+            // Group requests by status
+            const pending = requests.filter(r => r.status === 'pending');
+            const approved = requests.filter(r => r.status === 'approved');
+            const purchased = requests.filter(r => r.status === 'ordered' || r.status === 'partially_received' || r.status === 'completed');
+            
+            let html = '';
+            
+            // Helper function to render a status section
+            const renderSection = (title, items, statusClass) => {
+                if (items.length === 0) return '';
+                
+                let sectionHtml = `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #333; margin-bottom: 10px; font-size: 14px;">${title} (${items.length})</h4>
+                        <div style="background: #f8f9fa; border-radius: 5px; padding: 10px;">
+                `;
+                
+                items.forEach(request => {
+                    const date = new Date(request.created_at).toLocaleDateString();
+                    const orderName = request.order_name || `Request #${request.id}`;
+                    sectionHtml += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 5px; background: white; border-radius: 3px; font-size: 12px;">
+                            <div>
+                                <strong>${orderName}</strong><br>
+                                <span style="color: #666;">${request.requester_name} • ${date}</span>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="color: #333; font-weight: bold;">$${request.total.toFixed(2)}</div>
+                                <span class="status-badge status-${statusClass}" style="font-size: 10px;">${request.status.replace('_', ' ')}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                sectionHtml += '</div></div>';
+                return sectionHtml;
+            };
+            
+            html += renderSection('⏳ Pending Approval', pending, 'pending');
+            html += renderSection('✅ Approved', approved, 'approved');
+            html += renderSection('📦 Purchased', purchased, 'ordered');
+            
+            statusContainer.innerHTML = html;
         }
 
         // Setup listeners to clear error highlighting on input

@@ -448,6 +448,13 @@ textarea {
     background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
 }
 
+/* Override for access screen to prevent overlap */
+#accessCodeScreen.login-container {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 40px 20px 20px 20px;
+}
+
 .login-card {
     background: var(--white);
     padding: 48px;
@@ -465,6 +472,77 @@ textarea {
     font-size: 24px;
     font-weight: 600;
     letter-spacing: -0.02em;
+}
+
+/* Access screen two-column layout (access code left, status widget right) */
+.access-screen-wrapper {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100vw;
+    max-width: none;
+    padding: 0 40px;
+    box-sizing: border-box;
+    margin: 0;
+    overflow-x: hidden;
+}
+
+.access-left {
+    flex: 0 0 400px;
+    width: 400px;
+    max-width: 400px;
+    min-width: 400px;
+}
+
+.access-right {
+    flex: 0 0 460px;
+    width: 460px;
+    max-width: 460px;
+    min-width: 460px;
+}
+
+.status-card {
+    padding: 20px;
+    margin: 0;
+    height: fit-content;
+    min-height: 400px;
+    box-sizing: border-box;
+}
+
+.login-card {
+    background: var(--white);
+    padding: 48px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive: stack columns on small screens */
+@media (max-width: 950px) {
+    .access-screen-wrapper {
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        padding: 0 20px;
+        width: 100vw;
+    }
+
+    .access-left, .access-right {
+        width: 100%;
+        max-width: 500px;
+        min-width: auto;
+        flex: none;
+    }
+
+    #accessCodeScreen.login-container {
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
 }
 
 /* Tables - Frappe Style */

@@ -704,6 +704,23 @@ app.get('/api/public/departments', (req, res) => {
     res.json(departments);
 });
 
+app.get('/api/public/purchase-requests/status', (req, res) => {
+    try {
+        const requests = db.prepare(`
+            SELECT pr.id, pr.order_name, pr.requester_name, pr.status, pr.total, pr.created_at
+            FROM purchase_requests pr
+            WHERE pr.status IN ('pending', 'approved', 'ordered', 'partially_received', 'completed')
+            ORDER BY pr.created_at DESC
+            LIMIT 50
+        `).all();
+        
+        res.json(requests);
+    } catch (error) {
+        console.error('Failed to fetch purchase request status:', error);
+        res.status(500).json({ error: 'Failed to load status information' });
+    }
+});
+
 app.post('/api/public/departments', (req, res) => {
     const { name } = req.body;
     
