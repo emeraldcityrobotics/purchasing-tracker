@@ -203,7 +203,11 @@
             const statusFilter = document.getElementById('statusFilter').value;
             
             if (statusFilter === 'all') {
-                filteredRequests = allRequests;
+                // When 'all' is selected, exclude rejected orders
+                filteredRequests = allRequests.filter(r => r.status !== 'rejected');
+            } else if (statusFilter === 'rejected') {
+                // Only show rejected when explicitly selected
+                filteredRequests = allRequests.filter(r => r.status === 'rejected');
             } else {
                 filteredRequests = allRequests.filter(r => r.status === statusFilter);
             }
@@ -503,6 +507,9 @@
                         <button class="btn btn-primary" onclick="editTracking(${currentRequest.id})">Edit Tracking Info</button>
                         <button class="btn btn-success" onclick="exportToGoogleSheets(${currentRequest.id})" style="margin-left: 10px;">📊 Export to Sheets</button>
                     ` : ''}
+                    ${(currentUser.role === 'admin' || currentUser.role === 'purchaser') && currentRequest.status === 'approved' ? `
+                        <button class="btn btn-danger" onclick="rejectOrder(${currentRequest.id})" style="margin-left: 10px;">Reject Order</button>
+                    ` : ''}
                     <button class="btn btn-secondary" onclick="closeModal()">Close</button>
                 </div>
             `;
@@ -689,6 +696,33 @@
                     showError('Connection error');
                 }
             });
+        }
+
+        // Reject an approved order
+        async function rejectOrder(id) {
+            if (!confirm('Are you sure you want to reject this approved order? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/purchase-requests/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'rejected' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Order has been rejected');
+                    closeModal();
+                    await loadRequests();
+                } else {
+                    showError(data.error || 'Failed to reject order');
+                }
+            } catch (error) {
+                showError('Connection error');
+            }
         }
 
         // Receive items
