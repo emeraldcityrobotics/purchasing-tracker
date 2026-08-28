@@ -1,3 +1,27 @@
-<app-shell></app-shell>
+<mat-toolbar color="primary" class="topbar">
+  <a routerLink="/request" class="brand" mat-button>
+    <mat-icon>shopping_cart</mat-icon>
+    <span>Purchasing Tracker</span>
+  </a>
+  <nav class="nav">
+    <a mat-button routerLink="/request" routerLinkActive="active-link">New request</a>
+    <a mat-button routerLink="/approvals" routerLinkActive="active-link">Approvals</a>
+    <a mat-button routerLink="/tracking" routerLinkActive="active-link">Tracking</a>
+    <a mat-button *ngIf="auth.hasRole('admin')" routerLink="/admin" routerLinkActive="active-link">Admin</a>
+  </nav>
+  <ng-container *ngIf="auth.state().authenticated; else login">
+    <button mat-button class="account-trigger" [matMenuTriggerFor]="accountMenu">
+      <mat-icon>account_circle</mat-icon>
+      {{ auth.state().fullName }}
+    </button>
+    <mat-menu #accountMenu="matMenu">
+      <div class="menu-role">{{ auth.state().role }}</div>
+      <button mat-menu-item (click)="auth.logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Log out</span>
+      </button>
+    </mat-menu>
+  </ng-container>
+  <ng-template #login><a mat-button routerLink="/login">Staff login</a></ng-template>
+</mat-toolbar>
 <main class="page-shell"><router-outlet></router-outlet></main>
-<app-toast></app-toast>

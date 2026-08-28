@@ -1,1 +1,57 @@
 :host { display: block; min-height: 100vh; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  gap: 8px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.active-link {
+  background: color-mix(in srgb, var(--mat-sys-on-primary) 16%, transparent);
+}
+
+.account-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.menu-role {
+  padding: 6px 16px;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 11px;
+}
+
+@media (max-width: 800px) {
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 10px 12px;
+  }
+
+  .brand {
+    width: 100%;
+  }
+
+  .nav {
+    order: 3;
+    width: 100%;
+  }
+}

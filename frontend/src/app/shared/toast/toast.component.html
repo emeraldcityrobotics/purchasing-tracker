@@ -1,3 +1,0 @@
-<div class="toast-stack">
-  <div *ngFor="let toast of notifications.toasts()" class="toast" [class.toast-success]="toast.type === 'success'" [class.toast-error]="toast.type === 'error'" [class.toast-info]="toast.type === 'info'">{{ toast.message }}</div>
-</div>

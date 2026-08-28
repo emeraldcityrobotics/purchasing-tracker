@@ -1,0 +1,20 @@
+.approval-list {
+  display: grid;
+  gap: 16px;
+}
+
+.approval-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+
+.meta {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+}
+
+.total {
+  font-size: 16px;
+}

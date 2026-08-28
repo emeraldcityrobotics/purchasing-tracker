@@ -1,6 +1,9 @@
 import {CommonModule} from '@angular/common';
 import {Component, inject, signal} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
+import {MatButtonModule} from '@angular/material/button';
+import {MatCardModule} from '@angular/material/card';
+import {MatIconModule} from '@angular/material/icon';
 import {AuthService} from '../../core/auth.service';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -11,9 +14,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule],
   templateUrl: './login.component.html',
-  styles: [`.auth-page{min-height:70vh;display:grid;place-items:center}.auth-panel{width:min(430px,100%);background:white;border:1px solid var(--line);border-radius:16px;padding:36px;box-shadow:var(--shadow);text-align:center}h1{font-size:42px;margin-bottom:8px}.auth-panel button{width:100%;margin-top:28px}`]
+  styleUrl: './login.component.scss'
 })
 export class LoginComponent {
   private readonly auth = inject(AuthService);

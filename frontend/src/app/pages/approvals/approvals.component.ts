@@ -1,12 +1,21 @@
 import {CommonModule, CurrencyPipe, DatePipe} from '@angular/common';
 import {Component, inject, signal} from '@angular/core';
+import {MatButtonModule} from '@angular/material/button';
+import {MatCardModule} from '@angular/material/card';
+import {MatChipsModule} from '@angular/material/chips';
 import {ApiService} from '../../core/api.service';
 import {NotificationService} from '../../core/notification.service';
 import {AuthService} from '../../core/auth.service';
 import {PurchaseRequest} from '../../core/models';
 import {RequestService} from '../../core/request.service';
 
-@Component({selector: 'app-approvals', standalone: true, imports: [CommonModule, CurrencyPipe, DatePipe], templateUrl: './approvals.component.html', styles: [`.approval-list{display:grid;gap:12px}.request{display:grid;grid-template-columns:1fr auto auto auto;gap:18px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.request h3{font-size:16px}.meta{color:var(--muted);font-size:12px}.actions{display:flex;gap:7px;flex-wrap:wrap}@media(max-width:800px){.request{grid-template-columns:1fr}.actions{justify-content:flex-start}}`]})
+@Component({
+  selector: 'app-approvals',
+  standalone: true,
+  imports: [CommonModule, CurrencyPipe, DatePipe, MatButtonModule, MatCardModule, MatChipsModule],
+  templateUrl: './approvals.component.html',
+  styleUrl: './approvals.component.scss'
+})
 export class ApprovalsComponent {
   private readonly api = inject(ApiService); private readonly notifications = inject(NotificationService); readonly auth = inject(AuthService); readonly requests = signal<PurchaseRequest[]>([]); readonly requestService = inject(RequestService); readonly loading = signal(true);
   constructor() {

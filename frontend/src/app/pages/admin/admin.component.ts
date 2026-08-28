@@ -1,13 +1,42 @@
 import {CommonModule} from '@angular/common';
 import {Component, inject, signal} from '@angular/core';
 import {FormsModule} from '@angular/forms';
+import {MatButtonModule} from '@angular/material/button';
+import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatIconModule} from '@angular/material/icon';
+import {MatInputModule} from '@angular/material/input';
+import {MatListModule} from '@angular/material/list';
+import {MatSelectModule} from '@angular/material/select';
+import {MatTabsModule} from '@angular/material/tabs';
 import {ApiService} from '../../core/api.service';
 import {NotificationService} from '../../core/notification.service';
 import {Department, FundingSource, User, Vendor} from '../../core/models';
 
-@Component({selector: 'app-admin', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './admin.component.html', styles: [`.admin-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}.admin-tabs button.active{background:var(--green);color:#fff}.form-row{display:flex;gap:10px;margin-bottom:20px}.form-row>*{flex:1}.records{display:grid;gap:10px}.record{display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}@media(max-width:650px){.form-row{display:grid}.record{display:grid}}`]})
+@Component({
+  selector: 'app-admin',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatListModule,
+    MatSelectModule,
+    MatTabsModule
+  ],
+  templateUrl: './admin.component.html',
+  styleUrl: './admin.component.scss'
+})
 export class AdminComponent {
   private readonly api = inject(ApiService); private readonly notifications = inject(NotificationService); readonly tab = signal<'users' | 'vendors' | 'departments' | 'funding'>('users'); readonly users = signal<User[]>([]); readonly vendors = signal<Vendor[]>([]); readonly departments = signal<Department[]>([]); readonly funding = signal<FundingSource[]>([]); newName = ''; newDescription = ''; newRole = 'purchaser'; newPassword = '';
+  readonly tabs = ['users', 'vendors', 'departments', 'funding'] as const;
+
+  onTabChange(index: number) {
+    this.tab.set(this.tabs[index]);
+  }
+
   constructor() {
     this.load();
   }

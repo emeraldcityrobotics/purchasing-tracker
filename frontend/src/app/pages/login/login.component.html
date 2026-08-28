@@ -1,9 +1,17 @@
 <section class="auth-page">
-  <div class="auth-panel">
-    <div class="eyebrow">Staff portal</div>
-    <h1>Welcome back.</h1>
-    <p class="subtle">Sign in with your organization account to approve requests and track orders.</p>
-    <p class="error" *ngIf="error()">{{ error() }}</p>
-    <button class="btn btn-primary" type="button" (click)="signIn()">Sign in with SSO</button>
-  </div>
+  <mat-card class="auth-card" appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Welcome back</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p>Sign in to approve requests and track orders.</p>
+      <p class="error" *ngIf="error()"><mat-icon>error_outline</mat-icon>{{ error() }}</p>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-flat-button color="primary" type="button" (click)="signIn()">
+        <mat-icon>login</mat-icon>
+        Sign in with SSO
+      </button>
+    </mat-card-actions>
+  </mat-card>
 </section>

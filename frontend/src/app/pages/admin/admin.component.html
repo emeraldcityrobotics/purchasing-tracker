@@ -1,1 +1,119 @@
-<div class="page-heading"><div><div class="eyebrow">Control room</div><h1>Administration</h1><p class="subtle">Maintain the people and purchasing references used by the workflow.</p></div></div><div class="admin-tabs">@for (option of ['users','vendors','departments','funding']; track option) {<button class="btn btn-secondary" [class.active]="tab() === option" (click)="tab.set($any(option))">{{ option === 'funding' ? 'Funding sources' : (option | titlecase) }}</button>}</div><section class="panel"><form class="form-row" (ngSubmit)="add()"><input [(ngModel)]="newName" name="name" [placeholder]="tab() === 'users' ? 'Username' : 'Name'" required>@if(tab()==='users'){<input [(ngModel)]="newPassword" name="password" type="password" placeholder="Temporary password" required><input [(ngModel)]="newDescription" name="fullName" placeholder="Full name" required><select [(ngModel)]="newRole" name="role"><option value="purchaser">Purchaser</option><option value="approver">Approver</option><option value="admin">Admin</option></select>} @else if(tab()==='funding'){<input [(ngModel)]="newDescription" name="description" placeholder="Description">}<button class="btn btn-primary" type="submit">Add</button></form>@if(tab()==='users'){<div class="records">@for(user of users();track user.id){<div class="record"><span><strong>{{user.full_name||user.fullName}}</strong><small class="subtle">{{user.username}} · {{user.role}}</small></span><button class="btn btn-danger btn-small" (click)="remove('user',user.id)">Delete</button></div>}</div>} @else if(tab()==='vendors'){<div class="records">@for(vendor of vendors();track vendor.id){<div class="record"><span>{{vendor.name}}</span><button class="btn btn-danger btn-small" (click)="remove('vendor',vendor.id)">Delete</button></div>}</div>} @else if(tab()==='departments'){<div class="records">@for(department of departments();track department.id){<div class="record"><span>{{department.name}}</span><button class="btn btn-danger btn-small" (click)="remove('department',department.id)">Delete</button></div>}</div>} @else {<div class="records">@for(source of funding();track source.id){<div class="record"><span><strong>{{source.name}}</strong><small class="subtle">{{source.description}}</small></span><button class="btn btn-danger btn-small" (click)="remove('funding',source.id)">Delete</button></div>}</div>}</section>
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Control room</div>
+    <h1>Administration</h1>
+    <p class="subtle">Maintain the people and purchasing references used by the workflow.</p>
+  </div>
+</div>
+<mat-tab-group (selectedIndexChange)="onTabChange($event)">
+  <mat-tab label="Users">
+    <div class="tab-panel">
+      <form class="form-row" (ngSubmit)="add()">
+        <mat-form-field appearance="outline">
+          <mat-label>Username</mat-label>
+          <input matInput [(ngModel)]="newName" name="name" required>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Temporary password</mat-label>
+          <input matInput [(ngModel)]="newPassword" name="password" type="password" required>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Full name</mat-label>
+          <input matInput [(ngModel)]="newDescription" name="fullName" required>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Role</mat-label>
+          <mat-select [(ngModel)]="newRole" name="role">
+            <mat-option value="purchaser">Purchaser</mat-option>
+            <mat-option value="approver">Approver</mat-option>
+            <mat-option value="admin">Admin</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">Add</button>
+      </form>
+      <mat-list>
+        @for (user of users(); track user.id) {
+        <mat-list-item>
+          <span matListItemTitle>{{ user.full_name || user.fullName }}</span>
+          <span matListItemLine class="subtle">{{ user.username }} · {{ user.role }}</span>
+          <button mat-icon-button color="warn" matListItemMeta (click)="remove('user', user.id)"
+            aria-label="Delete user">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </mat-list-item>
+        }
+      </mat-list>
+    </div>
+  </mat-tab>
+  <mat-tab label="Vendors">
+    <div class="tab-panel">
+      <form class="form-row" (ngSubmit)="add()">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="newName" name="name" required>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">Add</button>
+      </form>
+      <mat-list>
+        @for (vendor of vendors(); track vendor.id) {
+        <mat-list-item>
+          <span matListItemTitle>{{ vendor.name }}</span>
+          <button mat-icon-button color="warn" matListItemMeta (click)="remove('vendor', vendor.id)"
+            aria-label="Delete vendor">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </mat-list-item>
+        }
+      </mat-list>
+    </div>
+  </mat-tab>
+  <mat-tab label="Departments">
+    <div class="tab-panel">
+      <form class="form-row" (ngSubmit)="add()">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="newName" name="name" required>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">Add</button>
+      </form>
+      <mat-list>
+        @for (department of departments(); track department.id) {
+        <mat-list-item>
+          <span matListItemTitle>{{ department.name }}</span>
+          <button mat-icon-button color="warn" matListItemMeta (click)="remove('department', department.id)"
+            aria-label="Delete department">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </mat-list-item>
+        }
+      </mat-list>
+    </div>
+  </mat-tab>
+  <mat-tab label="Funding sources">
+    <div class="tab-panel">
+      <form class="form-row" (ngSubmit)="add()">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="newName" name="name" required>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Description</mat-label>
+          <input matInput [(ngModel)]="newDescription" name="description">
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">Add</button>
+      </form>
+      <mat-list>
+        @for (source of funding(); track source.id) {
+        <mat-list-item>
+          <span matListItemTitle>{{ source.name }}</span>
+          <span matListItemLine class="subtle">{{ source.description }}</span>
+          <button mat-icon-button color="warn" matListItemMeta (click)="remove('funding', source.id)"
+            aria-label="Delete funding source">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </mat-list-item>
+        }
+      </mat-list>
+    </div>
+  </mat-tab>
+</mat-tab-group>

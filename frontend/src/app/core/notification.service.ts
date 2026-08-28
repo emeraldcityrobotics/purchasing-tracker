@@ -1,11 +1,12 @@
-import {Injectable, signal} from '@angular/core';
+import {Injectable, inject} from '@angular/core';
+import {MatSnackBar} from '@angular/material/snack-bar';
 
-export interface Toast {id: number; message: string; type: 'success' | 'error' | 'info'}
+export type ToastType = 'success' | 'error' | 'info';
 
 @Injectable({providedIn: 'root'})
 export class NotificationService {
-  readonly toasts = signal<Toast[]>([]);
-  private nextId = 0;
+  private readonly snackBar = inject(MatSnackBar);
+
   success(message: string) {
     this.show(message, 'success');
   }
@@ -18,9 +19,12 @@ export class NotificationService {
     this.show(message, 'info');
   }
 
-  private show(message: string, type: Toast['type']) {
-    const id = ++this.nextId;
-    this.toasts.update(toasts => [...toasts, {id, message, type}]);
-    setTimeout(() => this.toasts.update(toasts => toasts.filter(toast => toast.id !== id)), 3500);
+  private show(message: string, type: ToastType) {
+    this.snackBar.open(message, 'Dismiss', {
+      duration: 3500,
+      horizontalPosition: 'end',
+      verticalPosition: 'top',
+      panelClass: [`toast-${type}`]
+    });
   }
 }

@@ -1,8 +1,111 @@
-  <div class="page-heading"><div><div class="eyebrow">Request desk</div><h1>New purchase request</h1><p class="subtle">Capture what you need, when you need it, and where it should come from.</p></div></div>
-  <form class="panel request-form" (ngSubmit)="submit()">
-    <div class="grid grid-3"><label>Your name<input [(ngModel)]="requesterName" name="requesterName" required></label><label>Category<select [(ngModel)]="departmentId" name="departmentId" required><option value="">Select category</option><option *ngFor="let department of departments()" [value]="department.id">{{ department.name }}</option></select></label><label>Vendor<select [(ngModel)]="vendorId" name="vendorId" required><option value="">Select vendor</option><option *ngFor="let vendor of vendors()" [value]="vendor.id">{{ vendor.name }}</option></select></label></div>
-    <label>Order name / description<input [(ngModel)]="orderName" name="orderName" placeholder="What is this order for?"></label>
-    <div class="items"><div class="section-title"><h2>Items</h2><button type="button" class="btn btn-secondary btn-small" (click)="addItem()">+ Add item</button></div><div *ngFor="let item of items; let index=index" class="item-row"><label>Product<input [(ngModel)]="item.product_name" [name]="'product'+index" required></label><label>Description<input [(ngModel)]="item.description" [name]="'description'+index"></label><label>Link<input [(ngModel)]="item.purchase_link" [name]="'link'+index" type="url"></label><label>Qty<input [(ngModel)]="item.quantity" [name]="'quantity'+index" type="number" min="1"></label><label>Unit price<input [(ngModel)]="item.unit_price" [name]="'price'+index" type="number" min="0" step=".01"></label><strong>{{ calculator.lineTotal(item) | currency }}</strong><button type="button" class="remove" (click)="removeItem(index)" aria-label="Remove item">×</button></div></div>
-    <div class="grid grid-3"><label>Tax rate (%)<input [(ngModel)]="taxRate" name="taxRate" type="number" min="0" step=".01"></label><label>Requested arrival<input [(ngModel)]="requestedArrivalDate" name="requestedArrivalDate" type="date"></label><label>Shipping<input [(ngModel)]="shipping" name="shipping" type="number" min="0" step=".01"></label></div><label>Tariff<input [(ngModel)]="tariff" name="tariff" type="number" min="0" step=".01"></label><label>Notes<textarea [(ngModel)]="notes" name="notes"></textarea></label>
-    <div class="summary"><div>Subtotal <strong>{{ totals().subtotal | currency }}</strong></div><div>Tax <strong>{{ totals().taxAmount | currency }}</strong></div><div>Shipping <strong>{{ totals().shipping | currency }}</strong></div><div>Tariff <strong>{{ totals().tariff | currency }}</strong></div><div class="summary-total">Total <strong>{{ totals().total | currency }}</strong></div></div><p class="error" *ngIf="error()">{{ error() }}</p><button class="btn btn-primary" type="submit">Submit request</button>
-  </form>
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Request desk</div>
+    <h1>New purchase request</h1>
+    <p class="subtle">Capture what you need, when you need it, and where it should come from.</p>
+  </div>
+</div>
+<form (ngSubmit)="submit()">
+  <mat-card appearance="outlined" class="request-form">
+    <mat-card-content>
+      <mat-grid-list cols="3" rowHeight="96px" gutterSize="16px">
+        <mat-grid-tile>
+          <mat-form-field appearance="outline">
+            <mat-label>Your name</mat-label>
+            <input matInput [(ngModel)]="requesterName" name="requesterName" required>
+          </mat-form-field>
+        </mat-grid-tile>
+        <mat-grid-tile>
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select [(ngModel)]="departmentId" name="departmentId" required>
+              <mat-option *ngFor="let department of departments()" [value]="department.id">{{ department.name
+                }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </mat-grid-tile>
+        <mat-grid-tile>
+          <mat-form-field appearance="outline">
+            <mat-label>Vendor</mat-label>
+            <mat-select [(ngModel)]="vendorId" name="vendorId" required>
+              <mat-option *ngFor="let vendor of vendors()" [value]="vendor.id">{{ vendor.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </mat-grid-tile>
+      </mat-grid-list>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Order name / description</mat-label>
+        <input matInput [(ngModel)]="orderName" name="orderName" placeholder="What is this order for?">
+      </mat-form-field>
+      <div class="items">
+        <div class="section-title">
+          <h2>Items</h2><button mat-stroked-button type="button" (click)="addItem()">+ Add item</button>
+        </div>
+        <div *ngFor="let item of items; let index=index" class="item-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Product</mat-label>
+            <input matInput [(ngModel)]="item.product_name" [name]="'product'+index" required>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Description</mat-label>
+            <input matInput [(ngModel)]="item.description" [name]="'description'+index">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Link</mat-label>
+            <input matInput [(ngModel)]="item.purchase_link" [name]="'link'+index" type="url">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Qty</mat-label>
+            <input matInput [(ngModel)]="item.quantity" [name]="'quantity'+index" type="number" min="1">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Unit price</mat-label>
+            <input matInput [(ngModel)]="item.unit_price" [name]="'price'+index" type="number" min="0" step=".01">
+          </mat-form-field>
+          <strong>{{ calculator.lineTotal(item) | currency }}</strong>
+          <button mat-icon-button type="button" (click)="removeItem(index)"
+            aria-label="Remove item"><mat-icon>close</mat-icon></button>
+        </div>
+      </div>
+      <mat-grid-list cols="3" rowHeight="96px" gutterSize="16px">
+        <mat-grid-tile>
+          <mat-form-field appearance="outline">
+            <mat-label>Tax rate (%)</mat-label>
+            <input matInput [(ngModel)]="taxRate" name="taxRate" type="number" min="0" step=".01">
+          </mat-form-field>
+        </mat-grid-tile>
+        <mat-grid-tile>
+          <mat-form-field appearance="outline">
+            <mat-label>Requested arrival</mat-label>
+            <input matInput [(ngModel)]="requestedArrivalDate" name="requestedArrivalDate" type="date">
+          </mat-form-field>
+        </mat-grid-tile>
+        <mat-grid-tile>
+          <mat-form-field appearance="outline">
+            <mat-label>Shipping</mat-label>
+            <input matInput [(ngModel)]="shipping" name="shipping" type="number" min="0" step=".01">
+          </mat-form-field>
+        </mat-grid-tile>
+      </mat-grid-list>
+      <mat-form-field appearance="outline">
+        <mat-label>Tariff</mat-label>
+        <input matInput [(ngModel)]="tariff" name="tariff" type="number" min="0" step=".01">
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Notes</mat-label>
+        <textarea matInput [(ngModel)]="notes" name="notes"></textarea>
+      </mat-form-field>
+      <div class="summary">
+        <div>Subtotal <strong>{{ totals().subtotal | currency }}</strong></div>
+        <div>Tax <strong>{{ totals().taxAmount | currency }}</strong></div>
+        <div>Shipping <strong>{{ totals().shipping | currency }}</strong></div>
+        <div>Tariff <strong>{{ totals().tariff | currency }}</strong></div>
+        <div class="summary-total">Total <strong>{{ totals().total | currency }}</strong></div>
+      </div>
+      <p class="error" *ngIf="error()">{{ error() }}</p>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-flat-button color="primary" type="submit">Submit request</button>
+    </mat-card-actions>
+  </mat-card>
+</form>

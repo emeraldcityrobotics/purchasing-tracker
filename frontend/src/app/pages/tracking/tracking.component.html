@@ -1,1 +1,71 @@
-<div class="page-heading"><div><div class="eyebrow">Fulfillment desk</div><h1>Track orders</h1><p class="subtle">Follow every request from approval through receiving.</p></div></div><section class="panel"><div class="filters"><label>Status<select [value]="filter()" (change)="filter.set($any($event.target).value)"><option value="all">All active orders</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="ordered">Ordered</option><option value="partially_received">Partially received</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></label></div><div class="order-list">@if (loading()) {<div class="empty">Loading orders...</div>} @else if (!visible().length) {<div class="empty">No orders match this filter.</div>} @else {@for (request of visible(); track request.id) {<article class="order"><div><strong>{{ request.order_name || ('Request #' + request.id) }}</strong><div class="meta">#{{ request.id }} · {{ request.vendor_name }} · {{ request.created_at | date }}</div></div><div class="metric"><small>Estimated</small>{{ request.total | currency }}</div><div class="metric"><small>Actual spent</small>{{ request.actual_amount_spent ? (request.actual_amount_spent | currency) : '—' }}</div><div><span class="status" [class.status-pending]="request.status === 'pending'" [class.status-completed]="request.status === 'completed'">{{ requestService.statusLabel(request.status) }}</span></div><div class="progress-wrap"><div class="progress"><span [style.width.%]="requestService.progress(request)"></span></div><div class="progress-label">{{ requestService.progress(request) }}% received</div></div><button class="btn btn-secondary btn-small" (click)="receive(request)" [disabled]="!request.items?.length || request.status === 'completed' || request.status === 'rejected'">Receive</button></article>}}</div></section>
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Fulfillment desk</div>
+    <h1>Track orders</h1>
+    <p class="subtle">Follow every request from approval through receiving.</p>
+  </div>
+</div>
+<mat-card appearance="outlined">
+  <mat-card-content>
+    <mat-form-field appearance="outline" class="status-filter">
+      <mat-label>Status</mat-label>
+      <mat-select [value]="filter()" (selectionChange)="filter.set($event.value)">
+        <mat-option value="all">All active orders</mat-option>
+        <mat-option value="pending">Pending</mat-option>
+        <mat-option value="approved">Approved</mat-option>
+        <mat-option value="ordered">Ordered</mat-option>
+        <mat-option value="partially_received">Partially received</mat-option>
+        <mat-option value="completed">Completed</mat-option>
+        <mat-option value="rejected">Rejected</mat-option>
+      </mat-select>
+    </mat-form-field>
+    @if (loading()) {
+    <p class="empty">Loading orders...</p>
+    } @else if (!visible().length) {
+    <p class="empty">No orders match this filter.</p>
+    } @else {
+    <table mat-table [dataSource]="visible()" class="orders-table">
+      <ng-container matColumnDef="order">
+        <th mat-header-cell *matHeaderCellDef>Order</th>
+        <td mat-cell *matCellDef="let request">
+          <strong>{{ request.order_name || ('Request #' + request.id) }}</strong>
+          <div class="meta">#{{ request.id }} · {{ request.vendor_name }} · {{ request.created_at | date }}</div>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="estimated">
+        <th mat-header-cell *matHeaderCellDef>Estimated</th>
+        <td mat-cell *matCellDef="let request">{{ request.total | currency }}</td>
+      </ng-container>
+      <ng-container matColumnDef="actual">
+        <th mat-header-cell *matHeaderCellDef>Actual spent</th>
+        <td mat-cell *matCellDef="let request">{{ request.actual_amount_spent ? (request.actual_amount_spent | currency)
+          : '—' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let request">
+          <mat-chip [class.status-pending]="request.status === 'pending'"
+            [class.status-completed]="request.status === 'completed'">{{ requestService.statusLabel(request.status)
+            }}</mat-chip>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="progress">
+        <th mat-header-cell *matHeaderCellDef>Progress</th>
+        <td mat-cell *matCellDef="let request" class="progress-cell">
+          <mat-progress-bar mode="determinate" [value]="requestService.progress(request)"></mat-progress-bar>
+          <div class="progress-label">{{ requestService.progress(request) }}% received</div>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let request">
+          <button mat-stroked-button type="button" (click)="receive(request)"
+            [disabled]="!request.items?.length || request.status === 'completed' || request.status === 'rejected'">Receive</button>
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+    }
+  </mat-card-content>
+</mat-card>

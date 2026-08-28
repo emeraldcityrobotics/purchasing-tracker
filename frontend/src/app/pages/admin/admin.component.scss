@@ -1,0 +1,21 @@
+.tab-panel {
+  padding: 20px 4px 4px;
+  display: grid;
+  gap: 16px;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.form-row mat-form-field {
+  flex: 1;
+  min-width: 160px;
+}
+
+.form-row button {
+  margin-top: 8px;
+}
