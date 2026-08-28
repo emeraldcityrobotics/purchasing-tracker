@@ -8,29 +8,6 @@
 <mat-tab-group (selectedIndexChange)="onTabChange($event)">
   <mat-tab label="Users">
     <div class="tab-panel">
-      <form class="form-row" (ngSubmit)="add()">
-        <mat-form-field appearance="outline">
-          <mat-label>Username</mat-label>
-          <input matInput [(ngModel)]="newName" name="name" required>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Temporary password</mat-label>
-          <input matInput [(ngModel)]="newPassword" name="password" type="password" required>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Full name</mat-label>
-          <input matInput [(ngModel)]="newDescription" name="fullName" required>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Role</mat-label>
-          <mat-select [(ngModel)]="newRole" name="role">
-            <mat-option value="purchaser">Purchaser</mat-option>
-            <mat-option value="approver">Approver</mat-option>
-            <mat-option value="admin">Admin</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <button mat-flat-button color="primary" type="submit">Add</button>
-      </form>
       <mat-list>
         @for (user of users(); track user.id) {
         <mat-list-item>
@@ -67,7 +44,7 @@
       </mat-list>
     </div>
   </mat-tab>
-  <mat-tab label="Departments">
+  <mat-tab label="Categories">
     <div class="tab-panel">
       <form class="form-row" (ngSubmit)="add()">
         <mat-form-field appearance="outline">
@@ -80,10 +57,15 @@
         @for (department of departments(); track department.id) {
         <mat-list-item>
           <span matListItemTitle>{{ department.name }}</span>
-          <button mat-icon-button color="warn" matListItemMeta (click)="remove('department', department.id)"
-            aria-label="Delete department">
-            <mat-icon>delete</mat-icon>
-          </button>
+          <span matListItemLine class="subtle">Approver: {{ department.approver_name || 'No assigned approver' }}</span>
+          <div matListItemMeta>
+            <button mat-icon-button (click)="editDepartment(department)" aria-label="Edit category">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="remove('department', department.id)" aria-label="Delete category">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
         </mat-list-item>
         }
       </mat-list>

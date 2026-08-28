@@ -1,0 +1,24 @@
+<h2 mat-dialog-title>Receive items</h2>
+<mat-dialog-content>
+  @for (item of request.items || []; track item.id) {
+  <div class="item-row">
+    <div>
+      <strong>{{ item.product_name }}</strong>
+      <div class="item-meta">Received {{ item.quantity_received || 0 }} of {{ item.quantity }}</div>
+    </div>
+    @if (remaining(item) > 0) {
+    <mat-form-field appearance="outline" class="quantity-field">
+      <mat-label>Quantity</mat-label>
+      <input matInput type="number" min="1" [max]="remaining(item)" [ngModel]="quantity(item)"
+        (ngModelChange)="setQuantity(item, $event)">
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="button" (click)="receive(item)">Receive</button>
+    } @else {
+    <span class="received">Received</span>
+    }
+  </div>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close type="button">Close</button>
+</mat-dialog-actions>

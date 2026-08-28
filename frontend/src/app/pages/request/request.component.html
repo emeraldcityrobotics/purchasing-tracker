@@ -12,7 +12,7 @@
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Your name</mat-label>
-            <input matInput [(ngModel)]="requesterName" name="requesterName" required>
+            <input matInput [(ngModel)]="requesterName" name="requesterName" required disabled>
           </mat-form-field>
         </mat-grid-tile>
         <mat-grid-tile>
@@ -60,6 +60,7 @@
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Unit price</mat-label>
+            <span matTextPrefix>$&nbsp;</span>
             <input matInput [(ngModel)]="item.unit_price" [name]="'price'+index" type="number" min="0" step=".01">
           </mat-form-field>
           <strong>{{ calculator.lineTotal(item) | currency }}</strong>
@@ -67,7 +68,7 @@
             aria-label="Remove item"><mat-icon>close</mat-icon></button>
         </div>
       </div>
-      <mat-grid-list cols="3" rowHeight="96px" gutterSize="16px">
+      <mat-grid-list cols="4" rowHeight="96px" gutterSize="16px">
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Tax rate (%)</mat-label>
@@ -83,14 +84,18 @@
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Shipping</mat-label>
+            <span matTextPrefix>$&nbsp;</span>
             <input matInput [(ngModel)]="shipping" name="shipping" type="number" min="0" step=".01">
           </mat-form-field>
         </mat-grid-tile>
+        <mat-grid-tile>
+          <mat-form-field appearance="outline">
+            <mat-label>Tariff</mat-label>
+            <span matTextPrefix>$&nbsp;</span>
+            <input matInput [(ngModel)]="tariff" name="tariff" type="number" min="0" step=".01">
+          </mat-form-field>
+        </mat-grid-tile>
       </mat-grid-list>
-      <mat-form-field appearance="outline">
-        <mat-label>Tariff</mat-label>
-        <input matInput [(ngModel)]="tariff" name="tariff" type="number" min="0" step=".01">
-      </mat-form-field>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Notes</mat-label>
         <textarea matInput [(ngModel)]="notes" name="notes"></textarea>

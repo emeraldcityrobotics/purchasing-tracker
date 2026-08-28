@@ -80,10 +80,13 @@ export interface PurchaseRequest {
   funding_source_id?: number | null;
   requires_multi_approval?: number;
   approval_count?: number;
+  approval_history?: string | null;
   requested_arrival_date?: string | null;
   tracking_number?: string | null;
   estimated_delivery_date?: string | null;
   actual_amount_spent?: number | null;
+  total_item_quantity?: number;
+  received_item_quantity?: number;
   items?: RequestItem[];
   approvers?: Array<{approver_name: string; approved_at: string}>;
 }

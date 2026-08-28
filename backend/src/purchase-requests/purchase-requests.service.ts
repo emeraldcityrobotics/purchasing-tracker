@@ -8,7 +8,7 @@ import {DatabaseService} from '../database/database.service';
 export class PurchaseRequestsService {
   constructor(private readonly database: DatabaseService) {}
   list(request: Request) {
-    let query = `SELECT pr.*,v.name vendor_name,d.name department_name,a.full_name approver_name,fs.name funding_source_name FROM purchase_requests pr JOIN vendors v ON pr.vendor_id=v.id LEFT JOIN departments d ON pr.department_id=d.id LEFT JOIN users a ON pr.approved_by=a.id LEFT JOIN funding_sources fs ON pr.funding_source_id=fs.id`;
+    let query = `SELECT pr.*,v.name vendor_name,d.name department_name,a.full_name approver_name,fs.name funding_source_name,COALESCE(item_totals.total_item_quantity,0) total_item_quantity,COALESCE(item_totals.received_item_quantity,0) received_item_quantity,(SELECT GROUP_CONCAT(u.full_name || ' - ' || pra.approved_at, char(10)) FROM purchase_request_approvals pra JOIN users u ON pra.approver_id=u.id WHERE pra.purchase_request_id=pr.id) approval_history FROM purchase_requests pr JOIN vendors v ON pr.vendor_id=v.id LEFT JOIN departments d ON pr.department_id=d.id LEFT JOIN users a ON pr.approved_by=a.id LEFT JOIN funding_sources fs ON pr.funding_source_id=fs.id LEFT JOIN (SELECT purchase_request_id,SUM(quantity) total_item_quantity,SUM(quantity_received) received_item_quantity FROM purchase_request_items GROUP BY purchase_request_id) item_totals ON item_totals.purchase_request_id=pr.id`;
     const params: any[] = [];
     if (request.session.userRole === 'purchaser') {
       query += ' WHERE pr.requester_id=?';
@@ -133,9 +133,14 @@ export class PurchaseRequestsService {
         throw new BadRequestException(
           'Actual amount spent and funding source are required'
         );
+      const tax = Number(body.tax_amount ?? request.tax_amount);
+      const shipping = Number(body.shipping_cost ?? request.shipping_cost ?? 0);
+      const tariff = Number(body.tariff_cost ?? request.tariff_cost ?? 0);
+      if (tax < 0 || shipping < 0 || tariff < 0)
+        throw new BadRequestException('Costs cannot be negative');
       this.database.db
         .prepare(
-          'UPDATE purchase_requests SET status=?,tracking_number=?,estimated_delivery_date=?,actual_amount_spent=?,funding_source_id=? WHERE id=?'
+          'UPDATE purchase_requests SET status=?,tracking_number=?,estimated_delivery_date=?,actual_amount_spent=?,funding_source_id=?,tax_amount=?,shipping_cost=?,tariff_cost=?,total=? WHERE id=?'
         )
         .run(
           status,
@@ -143,6 +148,10 @@ export class PurchaseRequestsService {
           body.estimated_delivery_date || null,
           body.actual_amount_spent,
           body.funding_source_id,
+          tax,
+          shipping,
+          tariff,
+          request.subtotal + tax + shipping + tariff,
           id
         );
     } else
@@ -159,9 +168,47 @@ export class PurchaseRequestsService {
     return {success: true};
   }
 
+  markOrdered(id: string, body: any) {
+    const request = this.database.db
+      .prepare('SELECT status FROM purchase_requests WHERE id=?')
+      .get(id) as {status: string} | undefined;
+    if (!request) throw new NotFoundException('Purchase request not found');
+    if (request.status !== 'approved')
+      throw new BadRequestException('Only approved requests can be marked as ordered');
+    this.updateStatus(id, 'ordered', body, 0);
+    return {success: true};
+  }
+
+  cancelOrder(id: string) {
+    const request = this.database.db
+      .prepare('SELECT status FROM purchase_requests WHERE id=?')
+      .get(id) as {status: string} | undefined;
+    if (!request) throw new NotFoundException('Purchase request not found');
+    if (request.status !== 'approved')
+      throw new BadRequestException('Only approved requests can be cancelled');
+    this.database.db
+      .prepare("UPDATE purchase_requests SET status='rejected' WHERE id=?")
+      .run(id);
+    return {success: true};
+  }
+
   receive(id: string, itemId: string, quantity: number) {
     if (!quantity || quantity < 1)
       throw new BadRequestException('Quantity must be positive');
+    const request = this.database.db
+      .prepare('SELECT status FROM purchase_requests WHERE id=?')
+      .get(id) as {status: string} | undefined;
+    if (!request) throw new NotFoundException('Purchase request not found');
+    if (!['ordered', 'partially_received'].includes(request.status))
+      throw new BadRequestException('Only ordered requests can receive items');
+    const item = this.database.db
+      .prepare(
+        'SELECT quantity,quantity_received FROM purchase_request_items WHERE id=? AND purchase_request_id=?'
+      )
+      .get(itemId, id) as {quantity: number; quantity_received: number} | undefined;
+    if (!item) throw new NotFoundException('Purchase request item not found');
+    if (quantity > item.quantity - item.quantity_received)
+      throw new BadRequestException('Quantity exceeds the remaining item quantity');
     this.database.db
       .prepare(
         'UPDATE purchase_request_items SET quantity_received=quantity_received+?,received_at=COALESCE(received_at,CURRENT_TIMESTAMP) WHERE id=? AND purchase_request_id=?'
@@ -186,15 +233,30 @@ export class PurchaseRequestsService {
   }
 
   updateTracking(id: string, body: any) {
-    this.detail(id);
+    const request = this.database.db
+      .prepare('SELECT status,subtotal,tax_amount FROM purchase_requests WHERE id=?')
+      .get(id) as {status: string; subtotal: number; tax_amount: number} | undefined;
+    if (!request) throw new NotFoundException('Purchase request not found');
+    if (!['ordered', 'partially_received'].includes(request.status))
+      throw new BadRequestException('Only ordered requests can update order details');
+    const tax = Number(body.tax_amount ?? request.tax_amount);
+    const shipping = Number(body.shipping_cost || 0);
+    const tariff = Number(body.tariff_cost || 0);
+    if (tax < 0 || shipping < 0 || tariff < 0)
+      throw new BadRequestException('Costs cannot be negative');
     this.database.db
       .prepare(
-        'UPDATE purchase_requests SET tracking_number=?,estimated_delivery_date=?,actual_amount_spent=? WHERE id=?'
+        'UPDATE purchase_requests SET tracking_number=?,estimated_delivery_date=?,actual_amount_spent=?,funding_source_id=?,tax_amount=?,shipping_cost=?,tariff_cost=?,total=? WHERE id=?'
       )
       .run(
         body.tracking_number || null,
         body.estimated_delivery_date || null,
         body.actual_amount_spent || null,
+        body.funding_source_id || null,
+        tax,
+        shipping,
+        tariff,
+        request.subtotal + tax + shipping + tariff,
         id
       );
     return {

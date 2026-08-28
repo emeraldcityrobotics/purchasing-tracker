@@ -19,7 +19,9 @@ export class RequestService {
       const received = request.items.reduce((sum, item) => sum + Number(item.quantity_received || 0), 0);
       return total ? Math.round(received / total * 100) : 0;
     }
-    return ({pending: 0, rejected: 0, approved: 25, ordered: 50, partially_received: 75, completed: 100} as Record<string, number>)[request.status] ?? 0;
+    const total = Number(request.total_item_quantity || 0);
+    const received = Number(request.received_item_quantity || 0);
+    return total ? Math.round(received / total * 100) : 0;
   }
 
   statusLabel(status: PurchaseRequest['status']) {

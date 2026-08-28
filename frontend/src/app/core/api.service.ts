@@ -71,6 +71,22 @@ export class ApiService {
     return this.http.put<{success: boolean; message?: string; approved?: boolean; approvalCount?: number; required?: number; error?: string}>(`/api/purchase-requests/${id}/status`, data);
   }
 
+  markOrdered(id: number, data: {actualAmountSpent: number; fundingSourceId: number; trackingNumber: string; estimatedDeliveryDate: string; taxAmount: number; shippingCost: number; tariffCost: number}) {
+    return this.http.put<{success: boolean}>(`/api/purchase-requests/${id}/order`, {
+      actual_amount_spent: data.actualAmountSpent,
+      funding_source_id: data.fundingSourceId,
+      tracking_number: data.trackingNumber,
+      estimated_delivery_date: data.estimatedDeliveryDate,
+      tax_amount: data.taxAmount,
+      shipping_cost: data.shippingCost,
+      tariff_cost: data.tariffCost
+    });
+  }
+
+  cancelOrder(id: number) {
+    return this.http.put<{success: boolean}>(`/api/purchase-requests/${id}/cancel`, {});
+  }
+
   overrideApproval(id: number) {
     return this.http.put<{success: boolean; message?: string}>(`/api/purchase-requests/${id}/admin-override`, {});
   }

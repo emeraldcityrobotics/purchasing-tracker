@@ -8,7 +8,9 @@ import {AuthService} from '../../core/auth.service';
 
 const ERROR_MESSAGES: Record<string, string> = {
   oidc_session_expired: 'Your sign-in session expired. Please try again.',
-  oidc_failed: 'Unable to sign in. Please try again or contact an administrator.'
+  oidc_failed: 'Unable to sign in. Please try again or contact an administrator.',
+  oidc_unavailable:
+    'Sign-in is temporarily unavailable. Please try again shortly or contact an administrator.'
 };
 
 @Component({

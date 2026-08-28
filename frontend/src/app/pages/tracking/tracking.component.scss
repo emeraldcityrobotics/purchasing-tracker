@@ -1,5 +1,17 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .status-filter {
   min-width: 220px;
+  margin-bottom: 12px;
+}
+
+.search-filter {
+  flex: 1;
+  min-width: 260px;
   margin-bottom: 12px;
 }
 
@@ -21,4 +33,9 @@
   font-size: 11px;
   color: var(--mat-sys-on-surface-variant);
   margin-top: 4px;
+}
+
+.actions-cell-inner {
+  display: flex;
+  align-items: center;
 }

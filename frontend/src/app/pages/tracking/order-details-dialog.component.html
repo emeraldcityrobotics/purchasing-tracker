@@ -1,0 +1,73 @@
+<h2 mat-dialog-title>{{ isNewOrder ? 'Mark order as placed' : 'Order details' }}</h2>
+<mat-dialog-content>
+  <p class="order-name">{{ request.order_name || ('Request #' + request.id) }}</p>
+  <mat-form-field appearance="outline">
+    <mat-label>Actual amount spent</mat-label>
+    <span matTextPrefix>$&nbsp;</span>
+    <input matInput [(ngModel)]="actualAmountSpent" type="number" min="0.01" step="0.01" required>
+  </mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>Funding source</mat-label>
+    <mat-select [(ngModel)]="fundingSourceId" required>
+      @for (source of fundingSources(); track source.id) {
+      <mat-option [value]="source.id.toString()">{{ source.name }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>Tracking number</mat-label>
+    <input matInput [(ngModel)]="trackingNumber">
+  </mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>Estimated delivery date</mat-label>
+    <input matInput [(ngModel)]="estimatedDeliveryDate" type="date">
+  </mat-form-field>
+  <section class="costs">
+    <h3>Costs</h3>
+    <mat-form-field appearance="outline">
+      <mat-label>Shipping</mat-label>
+      <span matTextPrefix>$&nbsp;</span>
+      <input matInput [(ngModel)]="shippingCost" type="number" min="0" step="0.01">
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Tariff</mat-label>
+      <span matTextPrefix>$&nbsp;</span>
+      <input matInput [(ngModel)]="tariffCost" type="number" min="0" step="0.01">
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Tax</mat-label>
+      <span matTextPrefix>$&nbsp;</span>
+      <input matInput [(ngModel)]="taxAmount" type="number" min="0" step="0.01">
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Subtotal</mat-label>
+      <input matInput [value]="request.subtotal | currency" readonly>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Estimated total</mat-label>
+      <input matInput [value]="(request.subtotal + taxAmount + shippingCost + tariffCost) | currency" readonly>
+    </mat-form-field>
+  </section>
+  @if (!isNewOrder) {
+  <section class="items">
+    <h3>Line items</h3>
+    @for (item of request.items || []; track item.id) {
+    <div class="item-row">
+      <div>
+        <strong>{{ item.product_name }}</strong>
+        @if (item.description) {
+        <div class="item-description">{{ item.description }}</div>
+        }
+      </div>
+      <div class="item-quantity">{{ item.quantity }} x {{ item.unit_price | currency }}</div>
+      <strong>{{ item.line_total | currency }}</strong>
+    </div>
+    }
+  </section>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close type="button">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="submit()"
+    [disabled]="!actualAmountSpent || !fundingSourceId">{{ isNewOrder ? 'Mark ordered' : 'Save details' }}</button>
+</mat-dialog-actions>

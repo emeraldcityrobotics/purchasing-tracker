@@ -1,7 +1,7 @@
 <div class="page-heading">
   <div>
     <div class="eyebrow">Decision queue</div>
-    <h1>Approvals</h1>
+    <h1>Pending approvals</h1>
     <p class="subtle">Review requests waiting for a purchasing decision.</p>
   </div>
 </div>
@@ -10,35 +10,49 @@
 } @else if (!requests().length) {
 <p class="empty">No requests need attention.</p>
 } @else {
-<div class="approval-list">
-  @for (request of requests(); track request.id) {
-  <mat-card appearance="outlined">
-    <mat-card-content>
-      <div class="approval-main">
-        <div>
-          <h3>{{ request.order_name || ('Request #' + request.id) }}</h3>
+<mat-card appearance="outlined">
+  <mat-card-content>
+    <table mat-table [dataSource]="requests()" class="approvals-table">
+      <ng-container matColumnDef="order">
+        <th mat-header-cell *matHeaderCellDef>Request</th>
+        <td mat-cell *matCellDef="let request">
+          <strong>{{ request.order_name || ('Request #' + request.id) }}</strong>
           <div class="meta">#{{ request.id }} · {{ request.requester_name }} · {{ request.vendor_name }} · {{
             request.created_at | date }}</div>
-        </div>
-        <strong class="total">{{ request.total | currency }}</strong>
-        <mat-chip [class.status-pending]="request.status === 'pending'">
-          {{ requestService.statusLabel(request.status) }}
-          @if (request.requires_multi_approval) {
-          ({{ request.approval_count || 0 }}/5)
-          }
-        </mat-chip>
-      </div>
-    </mat-card-content>
-    <mat-card-actions>
-      <button mat-flat-button color="primary" type="button" (click)="approve(request)"
-        [disabled]="request.status !== 'pending'">Approve</button>
-      <button mat-stroked-button color="warn" type="button" (click)="reject(request)"
-        [disabled]="request.status !== 'pending'">Reject</button>
-      @if (request.status === 'pending') {
-      <button mat-button type="button" (click)="override(request)">Override</button>
-      }
-    </mat-card-actions>
-  </mat-card>
-  }
-</div>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="total">
+        <th mat-header-cell *matHeaderCellDef>Total</th>
+        <td mat-cell *matCellDef="let request">{{ request.total | currency }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let request">
+          <mat-chip [class.status-pending]="request.status === 'pending'">
+            {{ requestService.statusLabel(request.status) }}
+            @if (request.requires_multi_approval) {
+            ({{ request.approval_count || 0 }}/5)
+            }
+          </mat-chip>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let request" class="actions-cell">
+          <div class="actions-cell-inner">
+            <button mat-flat-button color="primary" type="button" (click)="approve(request)"
+              [disabled]="request.status !== 'pending'">Approve</button>
+            <button mat-stroked-button color="warn" type="button" (click)="reject(request)"
+              [disabled]="request.status !== 'pending'">Reject</button>
+            @if (request.status === 'pending') {
+            <button mat-button type="button" (click)="override(request)">Override</button>
+            }
+          </div>
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  </mat-card-content>
+</mat-card>
 }

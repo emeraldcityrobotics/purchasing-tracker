@@ -3,28 +3,29 @@ import {Component, inject, signal} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCardModule} from '@angular/material/card';
 import {MatChipsModule} from '@angular/material/chips';
+import {MatTableModule} from '@angular/material/table';
 import {ApiService} from '../../core/api.service';
 import {NotificationService} from '../../core/notification.service';
-import {AuthService} from '../../core/auth.service';
 import {PurchaseRequest} from '../../core/models';
 import {RequestService} from '../../core/request.service';
 
 @Component({
   selector: 'app-approvals',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, MatButtonModule, MatCardModule, MatChipsModule],
+  imports: [CommonModule, CurrencyPipe, DatePipe, MatButtonModule, MatCardModule, MatChipsModule, MatTableModule],
   templateUrl: './approvals.component.html',
   styleUrl: './approvals.component.scss'
 })
 export class ApprovalsComponent {
-  private readonly api = inject(ApiService); private readonly notifications = inject(NotificationService); readonly auth = inject(AuthService); readonly requests = signal<PurchaseRequest[]>([]); readonly requestService = inject(RequestService); readonly loading = signal(true);
+  private readonly api = inject(ApiService); private readonly notifications = inject(NotificationService); readonly requests = signal<PurchaseRequest[]>([]); readonly requestService = inject(RequestService); readonly loading = signal(true);
+  readonly columns = ['order', 'total', 'status', 'actions'];
   constructor() {
     this.load();
   }
 
   load() {
     this.api.requests().subscribe({next: (requests) => {
-      this.requests.set(requests.filter(request => ['pending', 'approved'].includes(request.status))); this.loading.set(false);
+      this.requests.set(requests.filter(request => request.status === 'pending')); this.loading.set(false);
     }, error: () => this.loading.set(false)});
   }
 

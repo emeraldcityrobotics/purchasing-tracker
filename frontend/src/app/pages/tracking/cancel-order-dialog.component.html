@@ -1,0 +1,9 @@
+<h2 mat-dialog-title>Cancel request?</h2>
+<mat-dialog-content>
+  <p>Cancel {{ request.order_name || ('Request #' + request.id) }} before it is ordered?</p>
+  <p class="warning">This changes the request status to rejected.</p>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close type="button">Keep request</button>
+  <button mat-flat-button color="warn" [mat-dialog-close]="true" type="button">Cancel request</button>
+</mat-dialog-actions>

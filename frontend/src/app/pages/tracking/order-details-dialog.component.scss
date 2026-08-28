@@ -1,0 +1,36 @@
+.order-name {
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0 0 16px;
+}
+
+mat-form-field {
+  display: block;
+}
+
+.costs {
+  margin-top: 20px;
+}
+
+.items {
+  margin-top: 20px;
+}
+
+h3 {
+  margin: 0 0 8px;
+}
+
+.item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.item-description,
+.item-quantity {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+  margin-top: 4px;
+}

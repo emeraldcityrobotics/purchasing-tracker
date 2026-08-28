@@ -44,6 +44,20 @@ export class PurchaseRequestsController {
     );
   }
 
+  @Put('purchase-requests/:id/order')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles('admin', 'purchaser')
+  order(@Param('id') id: string, @Body() body: any) {
+    return this.purchases.markOrdered(id, body);
+  }
+
+  @Put('purchase-requests/:id/cancel')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles('admin', 'approver', 'purchaser')
+  cancel(@Param('id') id: string) {
+    return this.purchases.cancelOrder(id);
+  }
+
   @Put('purchase-requests/:id/admin-override')
   @UseGuards(AuthGuard, RoleGuard)
   @Roles('admin')
@@ -51,7 +65,10 @@ export class PurchaseRequestsController {
     return this.purchases.updateStatus(id, 'approved', {}, req.session.userId!);
   }
 
-  @Put('purchase-requests/:id/tracking') tracking(
+  @Put('purchase-requests/:id/tracking')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles('admin', 'purchaser')
+  tracking(
     @Param('id') id: string,
     @Body() body: any
   ) {
