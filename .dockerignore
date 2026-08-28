@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.angular
+**/.angular
+*.md
+backend/.env
+backend/purchasing.db
+backend/purchasing.db-shm
+backend/purchasing.db-wal
+coverage
+**/coverage
+.vscode

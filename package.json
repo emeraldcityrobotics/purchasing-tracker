@@ -4,9 +4,9 @@
   "description": "A comprehensive purchasing tracker web application",
   "main": "backend/dist/main.js",
   "scripts": {
-    "start": "npm --prefix backend run start",
+    "start": "npm --prefix backend run start:prod",
     "dev": "npm --prefix backend run start:dev",
-    "build": "npm --prefix backend run build",
+    "build": "npm --prefix frontend run build && npm --prefix backend run build",
     "test": "npm --prefix backend run test",
     "lint": "eslint . && npm --prefix backend run lint && npm --prefix frontend run lint"
   },
