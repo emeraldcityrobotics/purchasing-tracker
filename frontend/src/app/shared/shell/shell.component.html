@@ -1,0 +1,14 @@
+<header class="topbar">
+  <a routerLink="/request" class="brand"><span class="brand-mark">PT</span><span>Purchasing Tracker</span></a>
+  <nav>
+    <a routerLink="/request" routerLinkActive="active">New request</a>
+    <a routerLink="/approvals" routerLinkActive="active">Approvals</a>
+    <a routerLink="/tracking" routerLinkActive="active">Tracking</a>
+    <a *ngIf="auth.hasRole('admin')" routerLink="/admin" routerLinkActive="active">Admin</a>
+  </nav>
+  <div class="account" *ngIf="auth.state().authenticated; else login">
+    <span>{{ auth.state().fullName }}</span><small>{{ auth.state().role }}</small>
+    <button (click)="auth.logout()">Log out</button>
+  </div>
+  <ng-template #login><a routerLink="/login" class="login-link">Staff login</a></ng-template>
+</header>

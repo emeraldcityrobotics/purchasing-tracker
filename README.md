@@ -66,6 +66,18 @@ npm start
 
 The application will be available at: `http://localhost:3000`
 
+## Angular Frontend
+
+The migrated Angular client lives in `frontend/` and keeps the Express API and SQLite database unchanged during this first phase. Start the backend with `npm start`, then run the client in a second terminal:
+
+```bash
+cd frontend
+npm start
+```
+
+Open `http://localhost:4200`. The Angular client uses a development proxy for `/api` calls to the NestJS server.
+The previous Express implementation remains available temporarily with `npm run start:legacy`.
+
 ## Default User Accounts
 
 The system comes with three pre-configured accounts for testing:
@@ -146,11 +158,12 @@ purchasing-tracker/
 ├── server.js              # Express server and API endpoints
 ├── package.json           # Node.js dependencies
 ├── purchasing.db          # SQLite database (created on first run)
-└── public/
-    ├── index.html         # Purchase request submission form
-    ├── approval.html      # Approval interface
-    ├── tracking.html      # Order tracking and receiving
-    └── styles.css         # Application styling
+├── public/                # Legacy vanilla frontend during migration
+└── frontend/
+   ├── src/app/pages/     # Route-served Angular page components
+   ├── src/app/core/      # Injectable API, auth, workflow, and notification services
+   ├── src/app/shared/    # Shared shell and toast components
+   └── proxy.conf.json    # Local Angular-to-Express API proxy
 ```
 
 ## Security Features
