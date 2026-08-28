@@ -7,36 +7,28 @@ import {Department, FundingSource, PurchaseRequest, RequestItem, Settings, User,
 export class ApiService {
   private readonly http = inject(HttpClient);
 
-  login(username: string, password: string) {
-    return this.http.post<{success: boolean; user: User; error?: string}>('/api/login', {username, password});
-  }
-
-  logout() {
-    return this.http.post<{success: boolean}>('/api/logout', {});
-  }
-
   authCheck() {
     return this.http.get<{authenticated: boolean; userId?: number; role?: User['role']; fullName?: string}>('/api/auth/check');
   }
 
-  vendors(publicApi = false): Observable<Vendor[] | {vendors: Vendor[]}> {
-    return this.http.get<Vendor[] | {vendors: Vendor[]}>(publicApi ? '/api/public/vendors' : '/api/vendors');
+  vendors(): Observable<{vendors: Vendor[]}> {
+    return this.http.get<{vendors: Vendor[]}>('/api/vendors');
   }
 
-  createVendor(data: Partial<Vendor>, publicApi = false) {
-    return this.http.post<{success: boolean; id: number; error?: string}>(publicApi ? '/api/public/vendors' : '/api/vendors', data);
+  createVendor(data: Partial<Vendor>) {
+    return this.http.post<{success: boolean; id: number; error?: string}>('/api/vendors', data);
   }
 
   deleteVendor(id: number) {
     return this.http.delete<{success: boolean}>(`/api/vendors/${id}`);
   }
 
-  departments(publicApi = false): Observable<Department[] | {departments: Department[]}> {
-    return this.http.get<Department[] | {departments: Department[]}>(publicApi ? '/api/public/departments' : '/api/departments');
+  departments(): Observable<{departments: Department[]}> {
+    return this.http.get<{departments: Department[]}>('/api/departments');
   }
 
-  createDepartment(data: Partial<Department>, publicApi = false) {
-    return this.http.post<{success: boolean; id: number; error?: string}>(publicApi ? '/api/public/departments' : '/api/departments', data);
+  createDepartment(data: Partial<Department>) {
+    return this.http.post<{success: boolean; id: number; error?: string}>('/api/departments', data);
   }
 
   updateDepartment(id: number, data: Partial<Department>) {
@@ -71,8 +63,8 @@ export class ApiService {
     return this.http.get<PurchaseRequest>(`/api/purchase-requests/${id}`);
   }
 
-  createRequest(data: object, publicApi = false) {
-    return this.http.post<{success: boolean; id: number; error?: string}>(publicApi ? '/api/public/purchase-requests' : '/api/purchase-requests', data);
+  createRequest(data: object) {
+    return this.http.post<{success: boolean; id: number; error?: string}>('/api/purchase-requests', data);
   }
 
   updateStatus(id: number, data: object) {
@@ -129,9 +121,5 @@ export class ApiService {
 
   testSheets() {
     return this.http.post<{success: boolean; error?: string}>('/api/google-sheets/test', {});
-  }
-
-  publicStatus() {
-    return this.http.get<PurchaseRequest[]>('/api/public/purchase-requests/status');
   }
 }

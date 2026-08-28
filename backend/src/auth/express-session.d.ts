@@ -5,5 +5,10 @@ declare module 'express-session' {
     userId?: number;
     userRole?: 'admin' | 'approver' | 'purchaser';
     userName?: string;
+    oidcState?: string;
+    oidcNonce?: string;
+    oidcCodeVerifier?: string;
+    oidcRedirectUri?: string;
+    oidcIdToken?: string;
   }
 }

@@ -16,7 +16,7 @@ export class DatabaseService implements OnModuleInit {
 
   private initialize() {
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','approver','purchaser')), full_name TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, slack_user_id TEXT);
+      CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin','approver','purchaser')), full_name TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, slack_user_id TEXT, oidc_subject TEXT);
       CREATE TABLE IF NOT EXISTS departments (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, approver_id INTEGER, slack_approval_message TEXT);
       CREATE TABLE IF NOT EXISTS vendors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, contact_person TEXT, email TEXT, phone TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS funding_sources (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, description TEXT, is_active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
@@ -25,6 +25,15 @@ export class DatabaseService implements OnModuleInit {
       CREATE TABLE IF NOT EXISTS purchase_request_approvals (id INTEGER PRIMARY KEY AUTOINCREMENT, purchase_request_id INTEGER NOT NULL, approver_id INTEGER NOT NULL, approved_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(purchase_request_id, approver_id));
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
     `);
+    // Pre-existing databases won't have this column from CREATE TABLE IF NOT EXISTS.
+    try {
+      this.db.exec('ALTER TABLE users ADD COLUMN oidc_subject TEXT');
+    } catch {
+      // column already exists
+    }
+    this.db.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_subject ON users(oidc_subject) WHERE oidc_subject IS NOT NULL'
+    );
     const defaults: Record<string, string> = {
       multi_approval_threshold: '1000',
       required_approvals: '5',
