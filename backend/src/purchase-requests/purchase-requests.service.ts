@@ -3,28 +3,10 @@ import {Injectable,
   BadRequestException} from '@nestjs/common';
 import {Request} from 'express';
 import {DatabaseService} from '../database/database.service';
-import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class PurchaseRequestsService {
   constructor(private readonly database: DatabaseService) {}
-  ensurePublicUser() {
-    const existing = this.database.db
-      .prepare('SELECT id FROM users WHERE username=\'public\'')
-      .get() as any;
-    if (existing) return existing.id;
-    return this.database.db
-      .prepare(
-        'INSERT INTO users(username,password,role,full_name) VALUES(?,?,?,?)'
-      )
-      .run(
-        'public',
-        bcrypt.hashSync('public-no-login', 10),
-        'purchaser',
-        'Public Request'
-      ).lastInsertRowid as number;
-  }
-
   list(request: Request) {
     let query = `SELECT pr.*,v.name vendor_name,d.name department_name,a.full_name approver_name,fs.name funding_source_name FROM purchase_requests pr JOIN vendors v ON pr.vendor_id=v.id LEFT JOIN departments d ON pr.department_id=d.id LEFT JOIN users a ON pr.approved_by=a.id LEFT JOIN funding_sources fs ON pr.funding_source_id=fs.id`;
     const params: any[] = [];
@@ -35,14 +17,6 @@ export class PurchaseRequestsService {
     return this.database.db
       .prepare(query + ' ORDER BY pr.created_at DESC')
       .all(...params);
-  }
-
-  publicStatus() {
-    return this.database.db
-      .prepare(
-        'SELECT id,order_name,requester_name,status,total,created_at FROM purchase_requests WHERE status IN (\'pending\',\'approved\',\'ordered\',\'partially_received\',\'completed\') ORDER BY created_at DESC LIMIT 50'
-      )
-      .all();
   }
 
   detail(id: string) {

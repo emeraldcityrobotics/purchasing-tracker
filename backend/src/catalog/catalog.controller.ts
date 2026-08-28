@@ -10,27 +10,9 @@ import {DatabaseService} from '../database/database.service';
 import {AuthGuard, RoleGuard, Roles} from '../auth/auth.guards';
 
 @Controller('api')
+@UseGuards(AuthGuard)
 export class CatalogController {
   constructor(private readonly database: DatabaseService) {}
-  @Get('public/vendors') publicVendors() {
-    return this.database.db
-      .prepare(
-        'SELECT id,name,contact_person,email,phone FROM vendors ORDER BY name'
-      )
-      .all();
-  }
-
-  @Post('public/vendors') publicVendor(@Body() body: any) {
-    return this.insert('vendors', body);
-  }
-
-  @Get('public/departments') publicDepartments() {
-    return this.database.db
-      .prepare('SELECT id,name FROM departments ORDER BY name')
-      .all();
-  }
-
-  @UseGuards(AuthGuard)
   @Get('vendors')
   vendors() {
     return {
@@ -40,13 +22,13 @@ export class CatalogController {
     };
   }
 
-  @UseGuards(AuthGuard, RoleGuard) @Roles('admin') @Post('vendors') vendor(
+  @UseGuards(RoleGuard) @Roles('admin') @Post('vendors') vendor(
     @Body() body: any
   ) {
     return this.insert('vendors', body);
   }
 
-  @UseGuards(AuthGuard, RoleGuard)
+  @UseGuards(RoleGuard)
   @Roles('admin')
   @Delete('vendors/:id')
   deleteVendor(@Param('id') id: string) {
@@ -54,7 +36,6 @@ export class CatalogController {
     return {success: true};
   }
 
-  @UseGuards(AuthGuard)
   @Get('departments')
   departments() {
     return {
@@ -66,14 +47,14 @@ export class CatalogController {
     };
   }
 
-  @UseGuards(AuthGuard, RoleGuard)
+  @UseGuards(RoleGuard)
   @Roles('admin')
   @Post('departments')
   department(@Body() body: any) {
     return this.insert('departments', body);
   }
 
-  @UseGuards(AuthGuard, RoleGuard)
+  @UseGuards(RoleGuard)
   @Roles('admin')
   @Put('departments/:id')
   updateDepartment(@Param('id') id: string, @Body() body: any) {
@@ -90,7 +71,7 @@ export class CatalogController {
     return {success: true};
   }
 
-  @UseGuards(AuthGuard, RoleGuard)
+  @UseGuards(RoleGuard)
   @Roles('admin')
   @Delete('departments/:id')
   deleteDepartment(@Param('id') id: string) {
@@ -98,7 +79,7 @@ export class CatalogController {
     return {success: true};
   }
 
-  @UseGuards(AuthGuard) @Get('funding-sources') funding() {
+  @Get('funding-sources') funding() {
     return {
       fundingSources: this.database.db
         .prepare('SELECT * FROM funding_sources ORDER BY name')
@@ -106,7 +87,7 @@ export class CatalogController {
     };
   }
 
-  @UseGuards(AuthGuard, RoleGuard)
+  @UseGuards(RoleGuard)
   @Roles('admin')
   @Post('funding-sources')
   fundingCreate(@Body() body: any) {
@@ -118,7 +99,7 @@ export class CatalogController {
     return {success: true};
   }
 
-  @UseGuards(AuthGuard, RoleGuard)
+  @UseGuards(RoleGuard)
   @Roles('admin')
   @Put('funding-sources/:id')
   fundingUpdate(@Param('id') id: string, @Body() body: any) {
@@ -130,7 +111,7 @@ export class CatalogController {
     return {success: true};
   }
 
-  @UseGuards(AuthGuard, RoleGuard)
+  @UseGuards(RoleGuard)
   @Roles('admin')
   @Delete('funding-sources/:id')
   fundingDelete(@Param('id') id: string) {

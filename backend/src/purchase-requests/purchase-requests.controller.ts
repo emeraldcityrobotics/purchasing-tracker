@@ -69,16 +69,3 @@ export class PurchaseRequestsController {
     return this.purchases.receive(requestId, itemId, body.quantity_received);
   }
 }
-
-@Controller('api/public')
-export class PublicPurchaseRequestsController {
-  constructor(private readonly purchases: PurchaseRequestsService) {}
-  @Get('purchase-requests/status') status() {
-    return this.purchases.publicStatus();
-  }
-
-  @Post('purchase-requests') create(@Body() body: any) {
-    const publicUser = this.purchases.ensurePublicUser();
-    return this.purchases.create(body, publicUser, body.requester_name);
-  }
-}

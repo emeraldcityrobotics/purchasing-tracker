@@ -13,7 +13,7 @@ export class AdminComponent {
   }
 
   load() {
-    this.api.users().subscribe(result => this.users.set(result.users)); this.api.vendors().subscribe(result => this.vendors.set(Array.isArray(result) ? result : result.vendors)); this.api.departments().subscribe(result => this.departments.set(Array.isArray(result) ? result : result.departments)); this.api.fundingSources().subscribe(result => this.funding.set(result.fundingSources));
+    this.api.users().subscribe(result => this.users.set(result.users)); this.api.vendors().subscribe(result => this.vendors.set(result.vendors)); this.api.departments().subscribe(result => this.departments.set(result.departments)); this.api.fundingSources().subscribe(result => this.funding.set(result.fundingSources));
   }
 
   add() {

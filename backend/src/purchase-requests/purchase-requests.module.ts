@@ -1,9 +1,8 @@
 import {Module} from '@nestjs/common';
-import {PurchaseRequestsController,
-  PublicPurchaseRequestsController} from './purchase-requests.controller';
+import {PurchaseRequestsController} from './purchase-requests.controller';
 import {PurchaseRequestsService} from './purchase-requests.service';
 @Module({
-  controllers: [PurchaseRequestsController, PublicPurchaseRequestsController],
+  controllers: [PurchaseRequestsController],
   providers: [PurchaseRequestsService],
   exports: [PurchaseRequestsService]
 })
