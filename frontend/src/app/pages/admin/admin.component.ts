@@ -7,10 +7,11 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatListModule} from '@angular/material/list';
+import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatTabsModule} from '@angular/material/tabs';
 import {ApiService} from '../../core/api.service';
 import {NotificationService} from '../../core/notification.service';
-import {Department, FundingSource, User, Vendor} from '../../core/models';
+import {Department, FundingSource, Settings, User, Vendor} from '../../core/models';
 import {CategoryDialogComponent, CategoryDialogResult} from './category-dialog.component';
 
 @Component({
@@ -24,14 +25,15 @@ import {CategoryDialogComponent, CategoryDialogResult} from './category-dialog.c
     MatIconModule,
     MatInputModule,
     MatListModule,
+    MatSlideToggleModule,
     MatTabsModule
   ],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss'
 })
 export class AdminComponent {
-  private readonly api = inject(ApiService); private readonly dialog = inject(MatDialog); private readonly notifications = inject(NotificationService); readonly tab = signal<'users' | 'vendors' | 'departments' | 'funding'>('users'); readonly users = signal<User[]>([]); readonly vendors = signal<Vendor[]>([]); readonly departments = signal<Department[]>([]); readonly funding = signal<FundingSource[]>([]); newName = ''; newDescription = '';
-  readonly tabs = ['users', 'vendors', 'departments', 'funding'] as const;
+  private readonly api = inject(ApiService); private readonly dialog = inject(MatDialog); private readonly notifications = inject(NotificationService); readonly tab = signal<'users' | 'vendors' | 'departments' | 'funding' | 'settings'>('users'); readonly users = signal<User[]>([]); readonly vendors = signal<Vendor[]>([]); readonly departments = signal<Department[]>([]); readonly funding = signal<FundingSource[]>([]); newName = ''; newDescription = ''; settings: Settings | null = null;
+  readonly tabs = ['users', 'vendors', 'departments', 'funding', 'settings'] as const;
 
   onTabChange(index: number) {
     this.tab.set(this.tabs[index]);
@@ -42,7 +44,21 @@ export class AdminComponent {
   }
 
   load() {
-    this.api.users().subscribe(result => this.users.set(result.users)); this.api.vendors().subscribe(result => this.vendors.set(result.vendors)); this.api.departments().subscribe(result => this.departments.set(result.departments)); this.api.fundingSources().subscribe(result => this.funding.set(result.fundingSources));
+    this.api.users().subscribe(result => this.users.set(result.users)); this.api.vendors().subscribe(result => this.vendors.set(result.vendors)); this.api.departments().subscribe(result => this.departments.set(result.departments)); this.api.fundingSources().subscribe(result => this.funding.set(result.fundingSources)); this.api.settings().subscribe(result => this.settings = result);
+  }
+
+  saveSettings() {
+    if (!this.settings) return;
+    this.api.updateSettings(this.settings).subscribe({next: () => this.notifications.success('Settings saved'), error: () => this.notifications.error('Unable to save settings')});
+  }
+
+  testSlack() {
+    if (!this.settings?.slack_webhook_url) return;
+    this.api.testSlack(this.settings.slack_webhook_url).subscribe({next: result => result.success ? this.notifications.success('Slack test message sent') : this.notifications.error(result.error || 'Slack test failed'), error: () => this.notifications.error('Slack test failed')});
+  }
+
+  testSheets() {
+    this.api.testSheets().subscribe({next: result => result.success ? this.notifications.success('Google Sheets test succeeded') : this.notifications.error(result.error || 'Google Sheets test failed'), error: () => this.notifications.error('Google Sheets test failed')});
   }
 
   add() {
