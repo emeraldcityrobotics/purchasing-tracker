@@ -1,6 +1,10 @@
 @use '@angular/material'as mat;
 
 html {
+  // mat.theme() defaults to theme-type: color-scheme, emitting light-dark() values;
+  // this tells the browser both schemes are supported so it follows OS preference.
+  color-scheme: light dark;
+
   @include mat.theme((color: mat.$violet-palette,
       typography: Roboto,
       density: 0));
