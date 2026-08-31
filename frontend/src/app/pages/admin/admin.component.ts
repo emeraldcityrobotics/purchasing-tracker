@@ -7,6 +7,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatListModule} from '@angular/material/list';
+import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatTabsModule} from '@angular/material/tabs';
 import {ApiService} from '../../core/api.service';
@@ -25,6 +26,7 @@ import {CategoryDialogComponent, CategoryDialogResult} from './category-dialog.c
     MatIconModule,
     MatInputModule,
     MatListModule,
+    MatProgressSpinnerModule,
     MatSlideToggleModule,
     MatTabsModule
   ],
@@ -32,7 +34,7 @@ import {CategoryDialogComponent, CategoryDialogResult} from './category-dialog.c
   styleUrl: './admin.component.scss'
 })
 export class AdminComponent {
-  private readonly api = inject(ApiService); private readonly dialog = inject(MatDialog); private readonly notifications = inject(NotificationService); readonly tab = signal<'users' | 'vendors' | 'departments' | 'funding' | 'settings'>('users'); readonly users = signal<User[]>([]); readonly vendors = signal<Vendor[]>([]); readonly departments = signal<Department[]>([]); readonly funding = signal<FundingSource[]>([]); newName = ''; newDescription = ''; settings: Settings | null = null;
+  private readonly api = inject(ApiService); private readonly dialog = inject(MatDialog); private readonly notifications = inject(NotificationService); readonly tab = signal<'users' | 'vendors' | 'departments' | 'funding' | 'settings'>('users'); readonly users = signal<User[]>([]); readonly vendors = signal<Vendor[]>([]); readonly departments = signal<Department[]>([]); readonly funding = signal<FundingSource[]>([]); readonly importingInvenTreeVendors = signal(false); newName = ''; newDescription = ''; settings: Settings | null = null;
   readonly tabs = ['users', 'vendors', 'departments', 'funding', 'settings'] as const;
 
   onTabChange(index: number) {
@@ -61,10 +63,27 @@ export class AdminComponent {
     this.api.testSheets().subscribe({next: result => result.success ? this.notifications.success('Google Sheets test succeeded') : this.notifications.error(result.error || 'Google Sheets test failed'), error: () => this.notifications.error('Google Sheets test failed')});
   }
 
+  testInvenTree() {
+    if (!this.settings?.inventree_url || !this.settings?.inventree_api_key) return;
+    this.api.testInvenTree(this.settings.inventree_url, this.settings.inventree_api_key).subscribe({next: result => result.success ? this.notifications.success(result.message || 'InvenTree connection verified') : this.notifications.error(result.message || 'InvenTree connection failed'), error: () => this.notifications.error('InvenTree connection failed')});
+  }
+
   add() {
     if (!this.newName.trim()) return; const done = () => {
       this.notifications.success('Added successfully'); this.newName = ''; this.newDescription = ''; this.load();
     }; if (this.tab() === 'vendors') this.api.createVendor({name: this.newName}).subscribe({next: done, error: () => this.notifications.error('Unable to add vendor')}); if (this.tab() === 'departments') this.api.createDepartment({name: this.newName}).subscribe({next: done, error: () => this.notifications.error('Unable to add category')}); if (this.tab() === 'funding') this.api.createFundingSource({name: this.newName, description: this.newDescription}).subscribe({next: done, error: () => this.notifications.error('Unable to add funding source')});
+  }
+
+  importFromInvenTree() {
+    this.importingInvenTreeVendors.set(true);
+    this.api.importInvenTreeVendors().subscribe({
+      next: result => {
+        this.importingInvenTreeVendors.set(false);
+        if (!result.success) { this.notifications.error(result.message || 'Unable to import InvenTree vendors'); return; }
+        this.notifications.success(`Imported ${result.count ?? 0} vendor${result.count === 1 ? '' : 's'} from InvenTree`); this.load();
+      },
+      error: () => { this.importingInvenTreeVendors.set(false); this.notifications.error('Unable to import InvenTree vendors'); }
+    });
   }
 
   editDepartment(department: Department) {

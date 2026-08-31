@@ -112,4 +112,6 @@ export interface Settings {
   google_sheets_enabled: boolean;
   google_apps_script_webhook: string;
   google_sheets_auto_export: boolean;
+  inventree_url: string;
+  inventree_api_key: string;
 }

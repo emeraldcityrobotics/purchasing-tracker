@@ -52,4 +52,10 @@ export class IntegrationsController {
       body.webhook_url
     );
   }
+
+  @Post('integrations/inventree/test') @Roles('admin') async testInvenTree(
+    @Body() body: {url?: string; api_key?: string}
+  ) {
+    return this.integrations.testInvenTreeConnection(body.url, body.api_key);
+  }
 }

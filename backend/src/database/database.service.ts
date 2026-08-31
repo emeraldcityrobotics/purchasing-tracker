@@ -51,7 +51,9 @@ export class DatabaseService implements OnModuleInit {
         'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete',
       google_sheets_enabled: 'false',
       google_apps_script_webhook: '',
-      google_sheets_auto_export: 'true'
+      google_sheets_auto_export: 'true',
+      inventree_url: '',
+      inventree_api_key: ''
     };
     const set = this.db.prepare(
       'INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)'

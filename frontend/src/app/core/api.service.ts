@@ -23,6 +23,14 @@ export class ApiService {
     return this.http.delete<{success: boolean}>(`/api/vendors/${id}`);
   }
 
+  importInvenTreeVendors() {
+    return this.http.post<{success: boolean; count?: number; message?: string}>('/api/vendors/import-inventree', {});
+  }
+
+  testInvenTree(url: string, apiKey: string) {
+    return this.http.post<{success: boolean; message?: string}>('/api/integrations/inventree/test', {url, api_key: apiKey});
+  }
+
   departments(): Observable<{departments: Department[]}> {
     return this.http.get<{departments: Department[]}>('/api/departments');
   }

@@ -30,6 +30,13 @@
           <input matInput [(ngModel)]="newName" name="name" required>
         </mat-form-field>
         <button mat-flat-button color="primary" type="submit">Add</button>
+        <button mat-stroked-button type="button" (click)="importFromInvenTree()" [disabled]="importingInvenTreeVendors()">
+          @if (importingInvenTreeVendors()) {
+          <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+          } @else {
+          Import from InvenTree
+          }
+        </button>
       </form>
       <mat-list>
         @for (vendor of vendors(); track vendor.id) {
@@ -156,6 +163,20 @@
           <input matInput [(ngModel)]="settings.google_apps_script_webhook">
         </mat-form-field>
         <button mat-stroked-button type="button" (click)="testSheets()" [disabled]="!settings.google_sheets_enabled">Send test export</button>
+      </div>
+
+      <h3>InvenTree</h3>
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>InvenTree URL</mat-label>
+          <input matInput [(ngModel)]="settings.inventree_url">
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>API key</mat-label>
+          <input matInput [(ngModel)]="settings.inventree_api_key" type="password">
+        </mat-form-field>
+        <button mat-stroked-button type="button" (click)="testInvenTree()"
+          [disabled]="!settings.inventree_url || !settings.inventree_api_key">Verify connection</button>
       </div>
 
       <button mat-flat-button color="primary" type="button" (click)="saveSettings()">Save settings</button>

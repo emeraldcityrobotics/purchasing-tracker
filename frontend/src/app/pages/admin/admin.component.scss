@@ -20,6 +20,11 @@
   margin-top: 8px;
 }
 
+.form-row button mat-progress-spinner {
+  display: inline-block;
+  margin: 0 12px;
+}
+
 .full-width {
   width: 100%;
 }

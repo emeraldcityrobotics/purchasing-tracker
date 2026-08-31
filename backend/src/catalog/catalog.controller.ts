@@ -8,11 +8,16 @@ import {Body,
   UseGuards} from '@nestjs/common';
 import {DatabaseService} from '../database/database.service';
 import {AuthGuard, RoleGuard, Roles} from '../auth/auth.guards';
+import {IntegrationsService} from '../integrations/integrations.service';
 
 @Controller('api')
 @UseGuards(AuthGuard)
 export class CatalogController {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly integrations: IntegrationsService
+  ) {}
+
   @Get('vendors')
   vendors() {
     return {
@@ -26,6 +31,27 @@ export class CatalogController {
     @Body() body: any
   ) {
     return this.insert('vendors', body);
+  }
+
+  @UseGuards(RoleGuard)
+  @Roles('admin')
+  @Post('vendors/import-inventree')
+  async importInvenTreeVendors() {
+    const result = await this.integrations.fetchInvenTreeVendors();
+    if (!result.success) return {success: false, message: result.message};
+    // ON CONFLICT keeps the existing row's id, only overwriting vendor details.
+    const upsert = this.database.db.prepare(
+      'INSERT INTO vendors(name,contact_person,email,phone) VALUES(?,?,?,?) '
+      + 'ON CONFLICT(name) DO UPDATE SET contact_person=excluded.contact_person,email=excluded.email,phone=excluded.phone'
+    );
+    const importAll = this.database.db.transaction(
+      (vendors: NonNullable<typeof result.vendors>) => {
+        for (const vendor of vendors)
+          upsert.run(vendor.name, vendor.contact_person, vendor.email, vendor.phone);
+      }
+    );
+    importAll(result.vendors || []);
+    return {success: true, count: (result.vendors || []).length};
   }
 
   @UseGuards(RoleGuard)
