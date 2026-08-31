@@ -5,21 +5,20 @@
     <p class="subtle">Capture what you need, when you need it, and where it should come from.</p>
   </div>
 </div>
-<form (ngSubmit)="submit()">
+<form [formGroup]="form" (ngSubmit)="submit()">
   <mat-card appearance="outlined" class="request-form">
     <mat-card-content>
       <mat-grid-list cols="3" rowHeight="96px" gutterSize="16px">
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Your name</mat-label>
-            <input matInput [(ngModel)]="requesterName" name="requesterName" required disabled>
+            <input matInput formControlName="requesterName" required>
           </mat-form-field>
         </mat-grid-tile>
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Category</mat-label>
-            <input matInput [(ngModel)]="departmentQuery" name="departmentQuery" required
-              [matAutocomplete]="categoryAuto" (ngModelChange)="onDepartmentQueryChange()">
+            <input matInput formControlName="departmentQuery" required [matAutocomplete]="categoryAuto">
             <mat-autocomplete #categoryAuto="matAutocomplete">
               @for (department of filteredDepartments(); track department.id) {
               <mat-option [value]="department.name">{{ department.name }}</mat-option>
@@ -30,8 +29,7 @@
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Vendor</mat-label>
-            <input matInput [(ngModel)]="vendorQuery" name="vendorQuery" required [matAutocomplete]="vendorAuto"
-              (ngModelChange)="onVendorQueryChange()">
+            <input matInput formControlName="vendorQuery" required [matAutocomplete]="vendorAuto">
             <mat-autocomplete #vendorAuto="matAutocomplete">
               @for (vendor of filteredVendors(); track vendor.id) {
               <mat-option [value]="vendor.name">{{ vendor.name }}</mat-option>
@@ -42,70 +40,72 @@
       </mat-grid-list>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Order name / description</mat-label>
-        <input matInput [(ngModel)]="orderName" name="orderName" placeholder="What is this order for?">
+        <input matInput formControlName="orderName" placeholder="What is this order for?">
       </mat-form-field>
-      <div class="items">
+      <div class="items" formArrayName="items">
         <div class="section-title">
           <h2>Items</h2><button mat-stroked-button type="button" (click)="addItem()">+ Add item</button>
         </div>
-        <div *ngFor="let item of items; let index=index" class="item-row">
+        @for (item of items.controls; track item; let index = $index) {
+        <div class="item-row" [formGroupName]="index">
           <mat-form-field appearance="outline">
             <mat-label>Product</mat-label>
-            <input matInput [(ngModel)]="item.product_name" [name]="'product'+index" required>
+            <input matInput formControlName="product_name" required>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Description</mat-label>
-            <input matInput [(ngModel)]="item.description" [name]="'description'+index">
+            <input matInput formControlName="description">
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Link</mat-label>
-            <input matInput [(ngModel)]="item.purchase_link" [name]="'link'+index" type="url">
+            <input matInput formControlName="purchase_link" type="url">
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Qty</mat-label>
-            <input matInput [(ngModel)]="item.quantity" [name]="'quantity'+index" type="number" min="1">
+            <input matInput formControlName="quantity" type="number" min="1">
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Unit price</mat-label>
             <span matTextPrefix>$&nbsp;</span>
-            <input matInput [(ngModel)]="item.unit_price" [name]="'price'+index" type="number" min="0" step=".01">
+            <input matInput formControlName="unit_price" type="number" min="0" step=".01">
           </mat-form-field>
-          <strong>{{ calculator.lineTotal(item) | currency }}</strong>
+          <strong>{{ lineTotal(item) | currency }}</strong>
           <button mat-icon-button type="button" (click)="removeItem(index)"
             aria-label="Remove item"><mat-icon>close</mat-icon></button>
         </div>
+        }
       </div>
       <mat-grid-list cols="4" rowHeight="96px" gutterSize="16px">
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Tax rate (%)</mat-label>
-            <input matInput [(ngModel)]="taxRate" name="taxRate" type="number" min="0" step=".01">
+            <input matInput formControlName="taxRate" type="number" min="0" step=".01">
           </mat-form-field>
         </mat-grid-tile>
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Requested arrival</mat-label>
-            <input matInput [(ngModel)]="requestedArrivalDate" name="requestedArrivalDate" type="date">
+            <input matInput formControlName="requestedArrivalDate" type="date">
           </mat-form-field>
         </mat-grid-tile>
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Shipping</mat-label>
             <span matTextPrefix>$&nbsp;</span>
-            <input matInput [(ngModel)]="shipping" name="shipping" type="number" min="0" step=".01">
+            <input matInput formControlName="shipping" type="number" min="0" step=".01">
           </mat-form-field>
         </mat-grid-tile>
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Tariff</mat-label>
             <span matTextPrefix>$&nbsp;</span>
-            <input matInput [(ngModel)]="tariff" name="tariff" type="number" min="0" step=".01">
+            <input matInput formControlName="tariff" type="number" min="0" step=".01">
           </mat-form-field>
         </mat-grid-tile>
       </mat-grid-list>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Notes</mat-label>
-        <textarea matInput [(ngModel)]="notes" name="notes"></textarea>
+        <textarea matInput formControlName="notes"></textarea>
       </mat-form-field>
       <div class="summary">
         <div>Subtotal <strong>{{ totals().subtotal | currency }}</strong></div>
@@ -114,7 +114,9 @@
         <div>Tariff <strong>{{ totals().tariff | currency }}</strong></div>
         <div class="summary-total">Total <strong>{{ totals().total | currency }}</strong></div>
       </div>
-      <p class="error" *ngIf="error()">{{ error() }}</p>
+      @if (error()) {
+      <p class="error">{{ error() }}</p>
+      }
     </mat-card-content>
     <mat-card-actions>
       <button mat-flat-button color="primary" type="submit">Submit request</button>

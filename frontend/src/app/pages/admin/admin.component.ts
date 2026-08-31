@@ -1,6 +1,6 @@
 import {CommonModule} from '@angular/common';
 import {Component, inject, signal} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatDialog} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -11,7 +11,7 @@ import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {MatTabsModule} from '@angular/material/tabs';
 import {ApiService} from '../../core/api.service';
 import {NotificationService} from '../../core/notification.service';
-import {Department, FundingSource, Settings, User, Vendor} from '../../core/models';
+import {Department, FundingSource, User, Vendor} from '../../core/models';
 import {CategoryDialogComponent, CategoryDialogResult} from './category-dialog.component';
 
 @Component({
@@ -19,7 +19,7 @@ import {CategoryDialogComponent, CategoryDialogResult} from './category-dialog.c
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
+    ReactiveFormsModule,
     MatButtonModule,
     MatFormFieldModule,
     MatIconModule,
@@ -32,8 +32,37 @@ import {CategoryDialogComponent, CategoryDialogResult} from './category-dialog.c
   styleUrl: './admin.component.scss'
 })
 export class AdminComponent {
-  private readonly api = inject(ApiService); private readonly dialog = inject(MatDialog); private readonly notifications = inject(NotificationService); readonly tab = signal<'users' | 'vendors' | 'departments' | 'funding' | 'settings'>('users'); readonly users = signal<User[]>([]); readonly vendors = signal<Vendor[]>([]); readonly departments = signal<Department[]>([]); readonly funding = signal<FundingSource[]>([]); newName = ''; newDescription = ''; settings: Settings | null = null;
+  private readonly api = inject(ApiService);
+  private readonly dialog = inject(MatDialog);
+  private readonly fb = inject(FormBuilder);
+  private readonly notifications = inject(NotificationService);
+  readonly tab = signal<'users' | 'vendors' | 'departments' | 'funding' | 'settings'>('users');
+  readonly users = signal<User[]>([]);
+  readonly vendors = signal<Vendor[]>([]);
+  readonly departments = signal<Department[]>([]);
+  readonly funding = signal<FundingSource[]>([]);
   readonly tabs = ['users', 'vendors', 'departments', 'funding', 'settings'] as const;
+
+  readonly addForm = this.fb.nonNullable.group({
+    name: ['', Validators.required],
+    description: ['']
+  });
+
+  readonly settingsForm = this.fb.nonNullable.group({
+    multi_approval_threshold: [0],
+    required_approvals: [1],
+    base_url: [''],
+    slack_webhook_url: [''],
+    slack_new_request_message: [''],
+    slack_approved_message: [''],
+    slack_multi_approval_message: [''],
+    slack_ordered_message: [''],
+    slack_arrived_message: [''],
+    google_sheets_enabled: [false],
+    google_apps_script_webhook: [''],
+    google_sheets_auto_export: [false]
+  });
+  readonly settingsLoaded = signal(false);
 
   onTabChange(index: number) {
     this.tab.set(this.tabs[index]);
@@ -44,17 +73,23 @@ export class AdminComponent {
   }
 
   load() {
-    this.api.users().subscribe(result => this.users.set(result.users)); this.api.vendors().subscribe(result => this.vendors.set(result.vendors)); this.api.departments().subscribe(result => this.departments.set(result.departments)); this.api.fundingSources().subscribe(result => this.funding.set(result.fundingSources)); this.api.settings().subscribe(result => this.settings = result);
+    this.api.users().subscribe(result => this.users.set(result.users));
+    this.api.vendors().subscribe(result => this.vendors.set(result.vendors));
+    this.api.departments().subscribe(result => this.departments.set(result.departments));
+    this.api.fundingSources().subscribe(result => this.funding.set(result.fundingSources));
+    this.api.settings().subscribe(result => {
+      this.settingsForm.patchValue(result); this.settingsLoaded.set(true);
+    });
   }
 
   saveSettings() {
-    if (!this.settings) return;
-    this.api.updateSettings(this.settings).subscribe({next: () => this.notifications.success('Settings saved'), error: () => this.notifications.error('Unable to save settings')});
+    this.api.updateSettings(this.settingsForm.value).subscribe({next: () => this.notifications.success('Settings saved'), error: () => this.notifications.error('Unable to save settings')});
   }
 
   testSlack() {
-    if (!this.settings?.slack_webhook_url) return;
-    this.api.testSlack(this.settings.slack_webhook_url).subscribe({next: result => result.success ? this.notifications.success('Slack test message sent') : this.notifications.error(result.error || 'Slack test failed'), error: () => this.notifications.error('Slack test failed')});
+    const webhookUrl = this.settingsForm.controls.slack_webhook_url.value;
+    if (!webhookUrl) return;
+    this.api.testSlack(webhookUrl).subscribe({next: result => result.success ? this.notifications.success('Slack test message sent') : this.notifications.error(result.error || 'Slack test failed'), error: () => this.notifications.error('Slack test failed')});
   }
 
   testSheets() {
@@ -62,9 +97,14 @@ export class AdminComponent {
   }
 
   add() {
-    if (!this.newName.trim()) return; const done = () => {
-      this.notifications.success('Added successfully'); this.newName = ''; this.newDescription = ''; this.load();
-    }; if (this.tab() === 'vendors') this.api.createVendor({name: this.newName}).subscribe({next: done, error: () => this.notifications.error('Unable to add vendor')}); if (this.tab() === 'departments') this.api.createDepartment({name: this.newName}).subscribe({next: done, error: () => this.notifications.error('Unable to add category')}); if (this.tab() === 'funding') this.api.createFundingSource({name: this.newName, description: this.newDescription}).subscribe({next: done, error: () => this.notifications.error('Unable to add funding source')});
+    if (this.addForm.invalid) return;
+    const {name, description} = this.addForm.getRawValue();
+    const done = () => {
+      this.notifications.success('Added successfully'); this.addForm.reset({name: '', description: ''}); this.load();
+    };
+    if (this.tab() === 'vendors') this.api.createVendor({name}).subscribe({next: done, error: () => this.notifications.error('Unable to add vendor')});
+    if (this.tab() === 'departments') this.api.createDepartment({name}).subscribe({next: done, error: () => this.notifications.error('Unable to add category')});
+    if (this.tab() === 'funding') this.api.createFundingSource({name, description}).subscribe({next: done, error: () => this.notifications.error('Unable to add funding source')});
   }
 
   editDepartment(department: Department) {

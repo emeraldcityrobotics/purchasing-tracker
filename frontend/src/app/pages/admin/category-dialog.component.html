@@ -1,12 +1,12 @@
 <h2 mat-dialog-title>Edit category</h2>
-<mat-dialog-content>
+<mat-dialog-content [formGroup]="form">
   <mat-form-field appearance="outline">
     <mat-label>Name</mat-label>
-    <input matInput [(ngModel)]="name" required>
+    <input matInput formControlName="name" required>
   </mat-form-field>
   <mat-form-field appearance="outline">
     <mat-label>Approver</mat-label>
-    <mat-select [(ngModel)]="approverId">
+    <mat-select formControlName="approverId">
       <mat-option value="">No assigned approver</mat-option>
       @for (approver of approvers(); track approver.id) {
       <mat-option [value]="approver.id.toString()">{{ approver.full_name }}</mat-option>
@@ -15,10 +15,11 @@
   </mat-form-field>
   <mat-form-field appearance="outline">
     <mat-label>Slack approval message</mat-label>
-    <textarea matInput [(ngModel)]="slackApprovalMessage" rows="4"></textarea>
+    <textarea matInput formControlName="slackApprovalMessage" rows="4"></textarea>
   </mat-form-field>
 </mat-dialog-content>
 <mat-dialog-actions align="end">
   <button mat-button mat-dialog-close type="button">Cancel</button>
-  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="!name.trim()">Save</button>
+  <button mat-flat-button color="primary" type="button" (click)="save()"
+    [disabled]="!form.controls.name.value.trim()">Save</button>
 </mat-dialog-actions>

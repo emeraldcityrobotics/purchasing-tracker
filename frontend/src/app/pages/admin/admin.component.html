@@ -24,12 +24,12 @@
   </mat-tab>
   <mat-tab label="Vendors">
     <div class="tab-panel">
-      <form class="form-row" (ngSubmit)="add()">
+      <form class="form-row" [formGroup]="addForm" (ngSubmit)="add()">
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
-          <input matInput [(ngModel)]="newName" name="name" required>
+          <input matInput formControlName="name" required>
         </mat-form-field>
-        <button mat-flat-button color="primary" type="submit">Add</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="addForm.invalid">Add</button>
       </form>
       <mat-list>
         @for (vendor of vendors(); track vendor.id) {
@@ -46,12 +46,12 @@
   </mat-tab>
   <mat-tab label="Categories">
     <div class="tab-panel">
-      <form class="form-row" (ngSubmit)="add()">
+      <form class="form-row" [formGroup]="addForm" (ngSubmit)="add()">
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
-          <input matInput [(ngModel)]="newName" name="name" required>
+          <input matInput formControlName="name" required>
         </mat-form-field>
-        <button mat-flat-button color="primary" type="submit">Add</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="addForm.invalid">Add</button>
       </form>
       <mat-list>
         @for (department of departments(); track department.id) {
@@ -73,16 +73,16 @@
   </mat-tab>
   <mat-tab label="Funding sources">
     <div class="tab-panel">
-      <form class="form-row" (ngSubmit)="add()">
+      <form class="form-row" [formGroup]="addForm" (ngSubmit)="add()">
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
-          <input matInput [(ngModel)]="newName" name="name" required>
+          <input matInput formControlName="name" required>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Description</mat-label>
-          <input matInput [(ngModel)]="newDescription" name="description">
+          <input matInput formControlName="description">
         </mat-form-field>
-        <button mat-flat-button color="primary" type="submit">Add</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="addForm.invalid">Add</button>
       </form>
       <mat-list>
         @for (source of funding(); track source.id) {
@@ -99,22 +99,22 @@
     </div>
   </mat-tab>
   <mat-tab label="Settings">
-    @if (settings) {
-    <div class="tab-panel">
+    @if (settingsLoaded()) {
+    <div class="tab-panel" [formGroup]="settingsForm">
       <h3>Approvals</h3>
       <div class="form-row">
         <mat-form-field appearance="outline">
           <mat-label>Multi-approval threshold</mat-label>
           <span matTextPrefix>$&nbsp;</span>
-          <input matInput [(ngModel)]="settings.multi_approval_threshold" type="number" min="0" step="0.01">
+          <input matInput formControlName="multi_approval_threshold" type="number" min="0" step="0.01">
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Required approvals</mat-label>
-          <input matInput [(ngModel)]="settings.required_approvals" type="number" min="1" step="1">
+          <input matInput formControlName="required_approvals" type="number" min="1" step="1">
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Base URL</mat-label>
-          <input matInput [(ngModel)]="settings.base_url">
+          <input matInput formControlName="base_url">
         </mat-form-field>
       </div>
 
@@ -122,40 +122,42 @@
       <div class="form-row">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Webhook URL</mat-label>
-          <input matInput [(ngModel)]="settings.slack_webhook_url">
+          <input matInput formControlName="slack_webhook_url">
         </mat-form-field>
-        <button mat-stroked-button type="button" (click)="testSlack()" [disabled]="!settings.slack_webhook_url">Send test message</button>
+        <button mat-stroked-button type="button" (click)="testSlack()"
+          [disabled]="!settingsForm.controls.slack_webhook_url.value">Send test message</button>
       </div>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>New request message</mat-label>
-        <textarea matInput [(ngModel)]="settings.slack_new_request_message" rows="2"></textarea>
+        <textarea matInput formControlName="slack_new_request_message" rows="2"></textarea>
       </mat-form-field>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Approved message</mat-label>
-        <textarea matInput [(ngModel)]="settings.slack_approved_message" rows="2"></textarea>
+        <textarea matInput formControlName="slack_approved_message" rows="2"></textarea>
       </mat-form-field>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Multi-approval message</mat-label>
-        <textarea matInput [(ngModel)]="settings.slack_multi_approval_message" rows="2"></textarea>
+        <textarea matInput formControlName="slack_multi_approval_message" rows="2"></textarea>
       </mat-form-field>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Ordered message</mat-label>
-        <textarea matInput [(ngModel)]="settings.slack_ordered_message" rows="2"></textarea>
+        <textarea matInput formControlName="slack_ordered_message" rows="2"></textarea>
       </mat-form-field>
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Arrived message</mat-label>
-        <textarea matInput [(ngModel)]="settings.slack_arrived_message" rows="2"></textarea>
+        <textarea matInput formControlName="slack_arrived_message" rows="2"></textarea>
       </mat-form-field>
 
       <h3>Google Sheets export</h3>
-      <mat-slide-toggle [(ngModel)]="settings.google_sheets_enabled">Enable Google Sheets export</mat-slide-toggle>
-      <mat-slide-toggle [(ngModel)]="settings.google_sheets_auto_export">Export automatically on order placement</mat-slide-toggle>
+      <mat-slide-toggle formControlName="google_sheets_enabled">Enable Google Sheets export</mat-slide-toggle>
+      <mat-slide-toggle formControlName="google_sheets_auto_export">Export automatically on order placement</mat-slide-toggle>
       <div class="form-row">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Apps Script webhook URL</mat-label>
-          <input matInput [(ngModel)]="settings.google_apps_script_webhook">
+          <input matInput formControlName="google_apps_script_webhook">
         </mat-form-field>
-        <button mat-stroked-button type="button" (click)="testSheets()" [disabled]="!settings.google_sheets_enabled">Send test export</button>
+        <button mat-stroked-button type="button" (click)="testSheets()"
+          [disabled]="!settingsForm.controls.google_sheets_enabled.value">Send test export</button>
       </div>
 
       <button mat-flat-button color="primary" type="button" (click)="saveSettings()">Save settings</button>
