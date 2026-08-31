@@ -109,6 +109,12 @@ export interface Settings {
   slack_multi_approval_message: string;
   slack_ordered_message: string;
   slack_arrived_message: string;
+  discord_webhook_url: string;
+  discord_new_request_message: string;
+  discord_approved_message: string;
+  discord_multi_approval_message: string;
+  discord_ordered_message: string;
+  discord_arrived_message: string;
   google_sheets_enabled: boolean;
   google_apps_script_webhook: string;
   google_sheets_auto_export: boolean;

@@ -52,4 +52,13 @@ export class IntegrationsController {
       body.webhook_url
     );
   }
+
+  @Post('settings/test-discord') @Roles('admin') async testDiscord(
+    @Body() body: {webhook_url: string}
+  ) {
+    return this.integrations.sendDiscord(
+      'Test notification from Purchasing Tracker',
+      body.webhook_url
+    );
+  }
 }

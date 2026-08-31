@@ -58,6 +58,12 @@ export class AdminComponent {
     slack_multi_approval_message: [''],
     slack_ordered_message: [''],
     slack_arrived_message: [''],
+    discord_webhook_url: [''],
+    discord_new_request_message: [''],
+    discord_approved_message: [''],
+    discord_multi_approval_message: [''],
+    discord_ordered_message: [''],
+    discord_arrived_message: [''],
     google_sheets_enabled: [false],
     google_apps_script_webhook: [''],
     google_sheets_auto_export: [false]
@@ -90,6 +96,12 @@ export class AdminComponent {
     const webhookUrl = this.settingsForm.controls.slack_webhook_url.value;
     if (!webhookUrl) return;
     this.api.testSlack(webhookUrl).subscribe({next: result => result.success ? this.notifications.success('Slack test message sent') : this.notifications.error(result.error || 'Slack test failed'), error: () => this.notifications.error('Slack test failed')});
+  }
+
+  testDiscord() {
+    const webhookUrl = this.settingsForm.controls.discord_webhook_url.value;
+    if (!webhookUrl) return;
+    this.api.testDiscord(webhookUrl).subscribe({next: result => result.success ? this.notifications.success('Discord test message sent') : this.notifications.error(result.message || 'Discord test failed'), error: () => this.notifications.error('Discord test failed')});
   }
 
   testSheets() {

@@ -49,6 +49,17 @@ export class DatabaseService implements OnModuleInit {
         'Purchase order placed: Request #{{id}} for {{vendor}} - Estimated: ${{total}}, Actual: ${{actual_amount_spent}}. Tracking: {{tracking_number}}',
       slack_arrived_message:
         'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete',
+      discord_webhook_url: '',
+      discord_new_request_message:
+        'New purchase request submitted: {{requester}} requested ${{total}} from {{vendor}} (Request #{{id}})',
+      discord_approved_message:
+        'Purchase request approved: Request #{{id}} for ${{total}} from {{vendor}} is ready to be ordered',
+      discord_multi_approval_message:
+        'Multi-approval required: Request #{{id}} ({{order_name}}) for ${{total}} from {{vendor}} requires {{required_approvals}} approvals',
+      discord_ordered_message:
+        'Purchase order placed: Request #{{id}} for {{vendor}} - Estimated: ${{total}}, Actual: ${{actual_amount_spent}}. Tracking: {{tracking_number}}',
+      discord_arrived_message:
+        'Purchase order arrived: Request #{{id}} from {{vendor}} has been received and needs to be marked as complete',
       google_sheets_enabled: 'false',
       google_apps_script_webhook: '',
       google_sheets_auto_export: 'true'

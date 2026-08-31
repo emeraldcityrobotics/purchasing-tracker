@@ -135,6 +135,10 @@ export class ApiService {
     return this.http.post<{success: boolean; error?: string}>('/api/settings/test-slack', {webhook_url});
   }
 
+  testDiscord(webhook_url: string) {
+    return this.http.post<{success: boolean; message?: string}>('/api/settings/test-discord', {webhook_url});
+  }
+
   testSheets() {
     return this.http.post<{success: boolean; error?: string}>('/api/google-sheets/test', {});
   }

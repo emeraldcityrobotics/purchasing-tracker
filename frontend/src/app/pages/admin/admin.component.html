@@ -148,6 +148,36 @@
         <textarea matInput formControlName="slack_arrived_message" rows="2"></textarea>
       </mat-form-field>
 
+      <h3>Discord notifications</h3>
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Webhook URL</mat-label>
+          <input matInput formControlName="discord_webhook_url">
+        </mat-form-field>
+        <button mat-stroked-button type="button" (click)="testDiscord()"
+          [disabled]="!settingsForm.controls.discord_webhook_url.value">Send test message</button>
+      </div>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>New request message</mat-label>
+        <textarea matInput formControlName="discord_new_request_message" rows="2"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Approved message</mat-label>
+        <textarea matInput formControlName="discord_approved_message" rows="2"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Multi-approval message</mat-label>
+        <textarea matInput formControlName="discord_multi_approval_message" rows="2"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Ordered message</mat-label>
+        <textarea matInput formControlName="discord_ordered_message" rows="2"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Arrived message</mat-label>
+        <textarea matInput formControlName="discord_arrived_message" rows="2"></textarea>
+      </mat-form-field>
+
       <h3>Google Sheets export</h3>
       <mat-slide-toggle formControlName="google_sheets_enabled">Enable Google Sheets export</mat-slide-toggle>
       <mat-slide-toggle formControlName="google_sheets_auto_export">Export automatically on order placement</mat-slide-toggle>

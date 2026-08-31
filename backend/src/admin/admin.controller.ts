@@ -104,7 +104,8 @@ export class AdminController {
       required_approvals: Number(values.required_approvals),
       google_sheets_enabled: values.google_sheets_enabled === 'true',
       google_sheets_auto_export: values.google_sheets_auto_export === 'true',
-      slack_webhook_url: values.slack_webhook_url || ''
+      slack_webhook_url: values.slack_webhook_url || '',
+      discord_webhook_url: values.discord_webhook_url || ''
     };
   }
 
