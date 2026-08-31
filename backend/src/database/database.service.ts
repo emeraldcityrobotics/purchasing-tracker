@@ -20,7 +20,7 @@ export class DatabaseService implements OnModuleInit {
       CREATE TABLE IF NOT EXISTS departments (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, approver_id INTEGER, slack_approval_message TEXT);
       CREATE TABLE IF NOT EXISTS vendors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, contact_person TEXT, email TEXT, phone TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS funding_sources (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, description TEXT, is_active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE IF NOT EXISTS purchase_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id INTEGER NOT NULL, department_id INTEGER, requester_id INTEGER NOT NULL, requester_name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', subtotal REAL NOT NULL, tax_amount REAL NOT NULL, shipping_cost REAL DEFAULT 0, tariff_cost REAL DEFAULT 0, total REAL NOT NULL, notes TEXT, approved_by INTEGER, approved_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, requires_multi_approval INTEGER DEFAULT 0, approval_count INTEGER DEFAULT 0, requested_arrival_date TEXT, order_name TEXT, tracking_number TEXT, estimated_delivery_date TEXT, actual_amount_spent REAL, funding_source_id INTEGER);
+      CREATE TABLE IF NOT EXISTS purchase_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id INTEGER NOT NULL, department_id INTEGER, requester_id INTEGER NOT NULL, requester_name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', subtotal REAL NOT NULL, tax_amount REAL NOT NULL, shipping_cost REAL DEFAULT 0, tariff_cost REAL DEFAULT 0, total REAL NOT NULL, notes TEXT, approved_by INTEGER, approved_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, requires_multi_approval INTEGER DEFAULT 0, approval_count INTEGER DEFAULT 0, requested_arrival_date TEXT, order_name TEXT, tracking_number TEXT, estimated_delivery_date TEXT, actual_amount_spent REAL, funding_source_id INTEGER, receipt_filename TEXT);
       CREATE TABLE IF NOT EXISTS purchase_request_items (id INTEGER PRIMARY KEY AUTOINCREMENT, purchase_request_id INTEGER NOT NULL, product_name TEXT NOT NULL, description TEXT, purchase_link TEXT, quantity INTEGER NOT NULL, unit_price REAL NOT NULL, line_total REAL NOT NULL, quantity_received INTEGER DEFAULT 0, received_at DATETIME);
       CREATE TABLE IF NOT EXISTS purchase_request_approvals (id INTEGER PRIMARY KEY AUTOINCREMENT, purchase_request_id INTEGER NOT NULL, approver_id INTEGER NOT NULL, approved_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(purchase_request_id, approver_id));
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
@@ -28,6 +28,11 @@ export class DatabaseService implements OnModuleInit {
     // Pre-existing databases won't have this column from CREATE TABLE IF NOT EXISTS.
     try {
       this.db.exec('ALTER TABLE users ADD COLUMN oidc_subject TEXT');
+    } catch {
+      // column already exists
+    }
+    try {
+      this.db.exec('ALTER TABLE purchase_requests ADD COLUMN receipt_filename TEXT');
     } catch {
       // column already exists
     }

@@ -1,14 +1,19 @@
 import {Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Post,
   Put,
   Req,
-  UseGuards} from '@nestjs/common';
-import type {Request} from 'express';
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors} from '@nestjs/common';
+import {FileInterceptor} from '@nestjs/platform-express';
+import type {Request, Response} from 'express';
 import {AuthGuard, RoleGuard, Roles} from '../auth/auth.guards';
-import {PurchaseRequestsService} from './purchase-requests.service';
+import {PurchaseRequestsService, UploadedReceiptFile} from './purchase-requests.service';
 @Controller('api')
 @UseGuards(AuthGuard)
 export class PurchaseRequestsController {
@@ -84,5 +89,25 @@ export class PurchaseRequestsController {
     @Body() body: any
   ) {
     return this.purchases.receive(requestId, itemId, body.quantity_received);
+  }
+
+  @Post('purchase-requests/:id/receipt')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles('admin', 'purchaser')
+  @UseInterceptors(FileInterceptor('file', {limits: {fileSize: 10 * 1024 * 1024}}))
+  uploadReceipt(
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedReceiptFile | undefined
+  ) {
+    return this.purchases.saveReceipt(id, file);
+  }
+
+  @Get('purchase-requests/:id/receipt') downloadReceipt(
+    @Param('id') id: string,
+    @Res() res: Response
+  ) {
+    const filePath = this.purchases.receiptPath(id);
+    if (!filePath) throw new NotFoundException('No receipt uploaded');
+    res.sendFile(filePath);
   }
 }

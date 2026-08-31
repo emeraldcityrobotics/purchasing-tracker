@@ -2,7 +2,28 @@ import {Injectable,
   NotFoundException,
   BadRequestException} from '@nestjs/common';
 import {Request} from 'express';
+import {mkdirSync, writeFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {DatabaseService} from '../database/database.service';
+
+export interface UploadedReceiptFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
+const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+const RECEIPT_MIME_EXTENSIONS: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'application/pdf': '.pdf'
+};
+const receiptsDir
+  = process.env.RECEIPTS_DIR || join(process.cwd(), 'uploads', 'receipts');
+mkdirSync(receiptsDir, {recursive: true});
 
 @Injectable()
 export class PurchaseRequestsService {
@@ -187,7 +208,7 @@ export class PurchaseRequestsService {
     if (request.status !== 'approved')
       throw new BadRequestException('Only approved requests can be cancelled');
     this.database.db
-      .prepare("UPDATE purchase_requests SET status='rejected' WHERE id=?")
+      .prepare('UPDATE purchase_requests SET status=\'rejected\' WHERE id=?')
       .run(id);
     return {success: true};
   }
@@ -263,5 +284,34 @@ export class PurchaseRequestsService {
       success: true,
       message: 'Tracking information updated successfully'
     };
+  }
+
+  saveReceipt(id: string, file: UploadedReceiptFile | undefined) {
+    if (!file) throw new BadRequestException('Receipt file is required');
+    if (file.size > RECEIPT_MAX_BYTES)
+      throw new BadRequestException('Receipt file is too large');
+    const extension = RECEIPT_MIME_EXTENSIONS[file.mimetype];
+    if (!extension)
+      throw new BadRequestException(
+        'Receipt must be an image (PNG, JPEG, WEBP, GIF) or PDF'
+      );
+    const request = this.database.db
+      .prepare('SELECT id FROM purchase_requests WHERE id=?')
+      .get(id);
+    if (!request) throw new NotFoundException('Purchase request not found');
+    const filename = `${id}-${Date.now()}${extension}`;
+    writeFileSync(join(receiptsDir, filename), file.buffer);
+    this.database.db
+      .prepare('UPDATE purchase_requests SET receipt_filename=? WHERE id=?')
+      .run(filename, id);
+    return {success: true, filename};
+  }
+
+  receiptPath(id: string): string | undefined {
+    const request = this.database.db
+      .prepare('SELECT receipt_filename FROM purchase_requests WHERE id=?')
+      .get(id) as {receipt_filename: string | null} | undefined;
+    if (!request?.receipt_filename) return undefined;
+    return join(receiptsDir, request.receipt_filename);
   }
 }

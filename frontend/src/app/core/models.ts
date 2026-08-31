@@ -87,6 +87,7 @@ export interface PurchaseRequest {
   actual_amount_spent?: number | null;
   total_item_quantity?: number;
   received_item_quantity?: number;
+  receipt_filename?: string | null;
   items?: RequestItem[];
   approvers?: Array<{approver_name: string; approved_at: string}>;
 }

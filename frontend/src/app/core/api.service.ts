@@ -99,6 +99,12 @@ export class ApiService {
     return this.http.put<{success: boolean; newStatus: PurchaseRequest['status']}>(`/api/purchase-requests/${requestId}/items/${itemId}/receive`, {quantity_received});
   }
 
+  uploadReceipt(id: number, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{success: boolean; filename?: string; error?: string}>(`/api/purchase-requests/${id}/receipt`, formData);
+  }
+
   exportRequest(id: number) {
     return this.http.post<{success: boolean; message?: string}>(`/api/google-sheets/export/${id}`, {});
   }

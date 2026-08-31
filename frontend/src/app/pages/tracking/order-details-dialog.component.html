@@ -1,6 +1,23 @@
 <h2 mat-dialog-title>{{ isNewOrder ? 'Mark order as placed' : 'Order details' }}</h2>
 <mat-dialog-content>
   <p class="order-name">{{ request.order_name || ('Request #' + request.id) }}</p>
+  <section class="receipt">
+    <h3>Receipt</h3>
+    <div class="receipt-row">
+      <button mat-stroked-button type="button" (click)="receiptInput.click()">Choose file</button>
+      <input #receiptInput type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden
+        (change)="onFileSelected($event)">
+      <span class="file-name">{{ selectedFile()?.name || (request.receipt_filename ? 'Receipt already uploaded' :
+        'No file selected') }}</span>
+      @if (request.receipt_filename) {
+      <a [href]="'/api/purchase-requests/' + request.id + '/receipt'" target="_blank" rel="noopener">View current
+        receipt</a>
+      }
+    </div>
+    @if (uploadError()) {
+    <p class="error">{{ uploadError() }}</p>
+    }
+  </section>
   <mat-form-field appearance="outline">
     <mat-label>Actual amount spent</mat-label>
     <span matTextPrefix>$&nbsp;</span>
@@ -69,5 +86,6 @@
 <mat-dialog-actions align="end">
   <button mat-button mat-dialog-close type="button">Cancel</button>
   <button mat-flat-button color="primary" type="button" (click)="submit()"
-    [disabled]="!actualAmountSpent || !fundingSourceId">{{ isNewOrder ? 'Mark ordered' : 'Save details' }}</button>
+    [disabled]="!actualAmountSpent || !fundingSourceId || uploading()">{{ uploading() ? 'Uploading receipt...' :
+    (isNewOrder ? 'Mark ordered' : 'Save details') }}</button>
 </mat-dialog-actions>

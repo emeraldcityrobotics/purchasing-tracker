@@ -3,6 +3,28 @@
   margin: 0 0 16px;
 }
 
+.receipt {
+  margin-bottom: 20px;
+}
+
+.receipt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.file-name {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 13px;
+}
+
+.error {
+  color: var(--mat-sys-error);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
 mat-form-field {
   display: block;
 }
