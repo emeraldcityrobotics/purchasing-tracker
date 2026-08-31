@@ -18,18 +18,25 @@
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Category</mat-label>
-            <mat-select [(ngModel)]="departmentId" name="departmentId" required>
-              <mat-option *ngFor="let department of departments()" [value]="department.id">{{ department.name
-                }}</mat-option>
-            </mat-select>
+            <input matInput [(ngModel)]="departmentQuery" name="departmentQuery" required
+              [matAutocomplete]="categoryAuto" (ngModelChange)="onDepartmentQueryChange()">
+            <mat-autocomplete #categoryAuto="matAutocomplete">
+              @for (department of filteredDepartments(); track department.id) {
+              <mat-option [value]="department.name">{{ department.name }}</mat-option>
+              }
+            </mat-autocomplete>
           </mat-form-field>
         </mat-grid-tile>
         <mat-grid-tile>
           <mat-form-field appearance="outline">
             <mat-label>Vendor</mat-label>
-            <mat-select [(ngModel)]="vendorId" name="vendorId" required>
-              <mat-option *ngFor="let vendor of vendors()" [value]="vendor.id">{{ vendor.name }}</mat-option>
-            </mat-select>
+            <input matInput [(ngModel)]="vendorQuery" name="vendorQuery" required [matAutocomplete]="vendorAuto"
+              (ngModelChange)="onVendorQueryChange()">
+            <mat-autocomplete #vendorAuto="matAutocomplete">
+              @for (vendor of filteredVendors(); track vendor.id) {
+              <mat-option [value]="vendor.name">{{ vendor.name }}</mat-option>
+              }
+            </mat-autocomplete>
           </mat-form-field>
         </mat-grid-tile>
       </mat-grid-list>
